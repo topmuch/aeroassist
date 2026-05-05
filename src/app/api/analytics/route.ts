@@ -63,10 +63,10 @@ export async function GET() {
       }),
     ]);
 
-    // Calculate resolution rate
+    // Calculate resolution rate (as ratio 0-1)
     const resolutionRate =
       totalClosedConversations > 0
-        ? Math.round((resolvedConversations / totalClosedConversations) * 100)
+        ? resolvedConversations / totalClosedConversations
         : 0;
 
     // Calculate average response time (approximate from message pairs)

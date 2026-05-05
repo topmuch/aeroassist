@@ -136,3 +136,29 @@ Stage Summary:
 - Toutes les API testées et fonctionnelles
 - Modules maintenant connectés à la vraie base de données
 - Config IA persiste via localStorage
+
+---
+Task ID: 6
+Agent: Main (Z.ai Code)
+Task: Suppression de TOUS les mocks + implémentation réelle des imports URL/PDF
+
+Work Log:
+- Audit honnête complet: identifié que le dashboard frontend utilisait ~660 lignes de données mock (mockUsers, mockKnowledge, mockAILogs, mockTransactions, mockFlights, mockRevenue, etc.) au lieu des vraies API
+- Installé cheerio + pdf-parse pour le scraping/extraction réelle
+- Réécrit PUT /api/modules pour supporter la mise à jour du champ `config` (JSON)
+- Créé POST /api/knowledge/import-url : scraping HTML réel (cheerio), nettoyage des balises, extraction texte, chunking sémantique, logs structurés, retry exponentiel, validation URL, gestion timeout
+- Créé POST /api/knowledge/import-pdf : extraction PDF réelle (pdf-parse), extraction métadonnées (auteur, sujet, date), chunking, validation taille 50MB, gestion erreurs
+- Réécrit admin-dashboard.tsx via subagent : suppression de toutes les données mock, fetch useEffect vers 6 API réelles (/api/analytics, /api/users, /api/knowledge, /api/modules, /api/flights, /api/reservations)
+- Fix saveModuleConfig : envoi maintenant le JSON config au PUT endpoint
+- Fix handleImportUrl : appelle /api/knowledge/import-url (scraping réel)
+- Fix handleImportPdf : envoie le fichier via FormData à /api/knowledge/import-pdf
+- Fix resolutionRate bug : API renvoyait 0-100, dashboard attendait 0-1
+- Tous les onglets utilisent maintenant des données réelles de la base SQLite
+- Lint clean, toutes les API retournent 200 dans les dev logs
+
+Stage Summary:
+- ZERO mock data restant dans le dashboard (vérifié via grep)
+- 2 nouvelles API endpoints fonctionnels (import-url, import-pdf)
+- 1 API endpoint corrigé (modules PUT avec config)
+- Dashboard 3006 lignes avec fetch real API pour les 7 onglets
+- Tout vérifié: lint clean + dev logs (6 API calls all 200)
