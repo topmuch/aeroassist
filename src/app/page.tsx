@@ -1,0 +1,115 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import Navbar, { type ViewType } from "@/components/landing/navbar";
+import HeroSection from "@/components/landing/hero-section";
+import FeaturesSection from "@/components/landing/features-section";
+import HowItWorksSection from "@/components/landing/how-it-works-section";
+import FaqSection from "@/components/landing/faq-section";
+import CtaSection from "@/components/landing/cta-section";
+import WhatsAppChat from "@/components/chat/whatsapp-chat";
+import AdminDashboard from "@/components/admin/admin-dashboard";
+import { Plane, Loader2 } from "lucide-react";
+
+function LoadingScreen() {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex flex-col items-center gap-4"
+      >
+        <div className="relative">
+          <div className="absolute inset-0 rounded-2xl bg-emerald-500/20 animate-ping" />
+          <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-600/30">
+            <Plane className="size-8" />
+          </div>
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-foreground">AeroAssist</h2>
+          <p className="text-sm text-muted-foreground mt-1">Chargement de l&apos;application...</p>
+        </div>
+        <Loader2 className="size-5 text-emerald-600 animate-spin" />
+      </motion.div>
+    </div>
+  );
+}
+
+const pageVariants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 },
+};
+
+export default function Home() {
+  const [currentView, setCurrentView] = useState<ViewType>("landing");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setMounted(true), 800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!mounted) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar currentView={currentView} onViewChange={setCurrentView} />
+
+      <AnimatePresence mode="wait">
+        {currentView === "landing" && (
+          <motion.main
+            key="landing"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.4, ease: "easeInOut" }}
+            className="pt-16"
+          >
+            <HeroSection />
+            <FeaturesSection />
+            <HowItWorksSection />
+            <FaqSection />
+            <CtaSection />
+          </motion.main>
+        )}
+
+        {currentView === "chat" && (
+          <motion.main
+            key="chat"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.4, ease: "easeInOut" }}
+            className="pt-16"
+          >
+            <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 md:p-8 bg-gradient-to-br from-gray-50 via-emerald-50/30 to-teal-50/20">
+              <WhatsAppChat />
+            </div>
+          </motion.main>
+        )}
+
+        {currentView === "admin" && (
+          <motion.main
+            key="admin"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.4, ease: "easeInOut" }}
+            className="pt-16"
+          >
+            <div className="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto">
+              <AdminDashboard />
+            </div>
+          </motion.main>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
