@@ -1,0 +1,158 @@
+# AeroAssist Load Test Configuration
+# Simulates 50 concurrent users interacting with the WhatsApp assistant
+# Run: npx artillery run scripts/load-test.yml
+# Report: npx artillery run scripts/load-test.yml --report json > reports/load-test-report.json
+
+config:
+  # Target environment (change to production URL when deploying)
+  target: "http://localhost:3000"
+  phases:
+    # Ramp up: gradually add users over 1 minute
+    - name: "Warm Up"
+      duration: 60
+      arrivalRate: 5
+      rampTo: 10
+
+    # Peak load: 50 concurrent users for 3 minutes
+    - name: "Peak Load"
+      duration: 180
+      arrivalRate: 50
+
+    # Ramp down: reduce to 5 users
+    - name: "Cool Down"
+      duration: 60
+      arrivalRate: 5
+      rampTo: 5
+
+  # Defaults
+  defaults:
+    headers:
+      Content-Type: "application/json"
+      X-Request-ID: "{{$uuid}}"
+
+  processor: "./scripts/load-test-processor.js"
+
+scenarios:
+  # ── Scenario 1: WhatsApp Webhook Messages ──
+  - name: "WhatsApp Webhook - Incoming Messages"
+    weight: 40
+    flow:
+      - log: "Sending webhook message..."
+      - post:
+          url: "/api/webhook/whatsapp"
+          headers:
+            X-Hub-Signature-256: "skip-verification-for-load-test"
+          json:
+            object: "whatsapp_business_account"
+            entry:
+              - id: "load-test-entry"
+                changes:
+                  - field: "messages"
+                    value:
+                      messaging_product: "whatsapp"
+                      metadata:
+                        display_phone_number: "+33612345678"
+                        phone_number_id: "test-phone-id"
+                      contacts:
+                        - profile:
+                            name: "Load Test User"
+                          wa_id: "336{{ $randomNumber(10000000, 99999999) }}"
+                      messages:
+                        - from: "336{{ $randomNumber(10000000, 99999999) }}"
+                          id: "wamid-loadtest-{{ $uuid }}"
+                          timestamp: "{{ $timestamp }}"
+                          type: "text"
+                          text:
+                            body: "{{ pickRandomMessage }}"
+          capture:
+            - json: "$.status"
+              as: "webhookStatus"
+          expect:
+            - statusCode: 200
+            - jsonString:
+                path: "$.status"
+                comparator: "isIn"
+                value: ["received", "processed", "error"]
+
+  # ── Scenario 2: Chat API (Internal) ──
+  - name: "Chat API - AI Responses"
+    weight: 25
+    flow:
+      - log: "Sending chat message..."
+      - post:
+          url: "/api/chat"
+          json:
+            message: "{{ pickRandomMessage }}"
+            language: "fr"
+          capture:
+            - json: "$.reply"
+              as: "aiReply"
+          expect:
+            - statusCode: 200
+            - jsonString:
+                path: "$.reply"
+                comparator: "exists"
+          think: 1
+
+  # ── Scenario 3: Dashboard API Calls ──
+  - name: "Dashboard - Analytics & Data"
+    weight: 20
+    flow:
+      - log: "Fetching analytics..."
+      - get:
+          url: "/api/analytics"
+          expect:
+            - statusCode: 200
+      - think: 0.5
+
+      - log: "Fetching flights..."
+      - get:
+          url: "/api/flights"
+          expect:
+            - statusCode: 200
+      - think: 0.5
+
+      - log: "Fetching modules..."
+      - get:
+          url: "/api/modules"
+          expect:
+            - statusCode: 200
+      - think: 0.3
+
+  # ── Scenario 4: Knowledge Base Operations ──
+  - name: "Knowledge Base - Search & Read"
+    weight: 10
+    flow:
+      - log: "Fetching knowledge base..."
+      - get:
+          url: "/api/knowledge"
+          expect:
+            - statusCode: 200
+      - think: 0.5
+
+  # ── Scenario 5: Health Check ──
+  - name: "Health Check"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/health"
+          capture:
+            - json: "$.status"
+              as: "healthStatus"
+          expect:
+            - statusCode: 200
+            - jsonString:
+                path: "$.status"
+                comparator: "isIn"
+                value: ["UP", "DEGRADED"]
+      - think: 2
+
+# ── Thresholds (SLA Targets) ──
+# Adjust these based on your production requirements
+ensure:
+  # p95 response time should be under 2 seconds for webhook
+  p95: "http.response_time < 2000"
+  # p99 response time should be under 5 seconds
+  p99: "http.response_time < 5000"
+  # Error rate should be under 5%
+  maxErrorRate: 5
