@@ -57,7 +57,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar currentView={currentView} onViewChange={setCurrentView} />
+      {currentView !== "admin" && (
+        <Navbar currentView={currentView} onViewChange={setCurrentView} />
+      )}
 
       <AnimatePresence mode="wait">
         {currentView === "landing" && (
@@ -102,7 +104,7 @@ export default function Home() {
             animate="animate"
             exit="exit"
             transition={{ duration: 0.4, ease: "easeInOut" }}
-            className="pt-16"
+            className="h-screen overflow-hidden"
           >
             <AdminDashboard />
           </motion.main>

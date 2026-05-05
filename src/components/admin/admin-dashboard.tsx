@@ -48,6 +48,7 @@ import {
   Scissors,
   Sun,
   Moon,
+  Home,
 } from "lucide-react";
 
 import { useTheme } from "next-themes";
@@ -1336,7 +1337,7 @@ export default function AdminDashboard() {
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] -m-4 md:-m-6 lg:-m-8">
+    <div className="flex h-full">
       {/* ═══════════════════════ SIDEBAR ═══════════════════════ */}
       <aside className="admin-sidebar w-64 shrink-0 hidden md:flex flex-col p-4">
         {/* Logo */}
@@ -1364,8 +1365,19 @@ export default function AdminDashboard() {
           ))}
         </nav>
 
-        {/* Theme Toggle */}
-        <div className="border-t border-white/10 pt-3 mt-3">
+        {/* Theme Toggle + Back Home */}
+        <div className="border-t border-white/10 pt-3 mt-3 space-y-1">
+          <a
+            href="/"
+            className="sidebar-nav-item w-full"
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.href = "/";
+            }}
+          >
+            <Home className="h-4 w-4" />
+            <span>Retour à l&apos;accueil</span>
+          </a>
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             className="sidebar-nav-item w-full"
@@ -1432,38 +1444,40 @@ export default function AdminDashboard() {
                 <>
                   {/* Stat Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="kpi-card-blue premium-card border-l-4 border-l-blue-500">
-                      <CardContent className="p-5">
+                    <Card className="premium-card border-0 overflow-hidden">
+                      <CardContent className="p-5 relative">
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-400 to-blue-600" />
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm font-medium text-muted-foreground">
                               Conversations
                             </p>
-                            <p className="text-3xl font-bold mt-1">
+                            <p className="text-3xl font-bold mt-1 bg-gradient-to-r from-blue-600 to-blue-400 dark:from-blue-400 dark:to-blue-300 bg-clip-text text-transparent">
                               {analytics?.overview.totalConversations.toLocaleString("fr-FR") || "0"}
                             </p>
                             <div className="flex items-center gap-1 mt-2">
-                              <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
-                              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                              <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
+                              <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
                                 Données en direct
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-center h-14 w-14 rounded-xl bg-blue-100 dark:bg-blue-900/30">
-                            <MessageCircle className="h-7 w-7 text-blue-600 dark:text-blue-400" />
+                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-400 to-blue-600 shadow-lg shadow-blue-500/20">
+                            <MessageCircle className="h-7 w-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
 
-                    <Card className="kpi-card-emerald premium-card border-l-4 border-l-emerald-500">
-                      <CardContent className="p-5">
+                    <Card className="premium-card border-0 overflow-hidden">
+                      <CardContent className="p-5 relative">
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-400 to-emerald-600" />
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm font-medium text-muted-foreground">
                               Messages totaux
                             </p>
-                            <p className="text-3xl font-bold mt-1">
+                            <p className="text-3xl font-bold mt-1 bg-gradient-to-r from-emerald-600 to-emerald-400 dark:from-emerald-400 dark:to-emerald-300 bg-clip-text text-transparent">
                               {analytics?.overview.totalMessages.toLocaleString("fr-FR") || "0"}
                             </p>
                             <div className="flex items-center gap-1 mt-2">
@@ -1473,45 +1487,47 @@ export default function AdminDashboard() {
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-center h-14 w-14 rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
-                            <Users className="h-7 w-7 text-emerald-600 dark:text-emerald-400" />
+                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/20">
+                            <Users className="h-7 w-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
 
-                    <Card className="kpi-card-amber premium-card border-l-4 border-l-amber-500">
-                      <CardContent className="p-5">
+                    <Card className="premium-card border-0 overflow-hidden">
+                      <CardContent className="p-5 relative">
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-amber-400 to-orange-500" />
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm font-medium text-muted-foreground">
                               Utilisateurs actifs
                             </p>
-                            <p className="text-3xl font-bold mt-1">
+                            <p className="text-3xl font-bold mt-1 bg-gradient-to-r from-amber-600 to-orange-500 dark:from-amber-400 dark:to-orange-300 bg-clip-text text-transparent">
                               {analytics?.overview.activeUsers.toLocaleString("fr-FR") || "0"}
                             </p>
                             <div className="flex items-center gap-1 mt-2">
-                              <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
-                              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                              <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
+                              <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
                                 Utilisateurs inscrits
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-center h-14 w-14 rounded-xl bg-amber-100 dark:bg-amber-900/30">
-                            <CheckCircle className="h-7 w-7 text-amber-600 dark:text-amber-400" />
+                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/20">
+                            <CheckCircle className="h-7 w-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
 
-                    <Card className="kpi-card-purple premium-card border-l-4 border-l-purple-500">
-                      <CardContent className="p-5">
+                    <Card className="premium-card border-0 overflow-hidden">
+                      <CardContent className="p-5 relative">
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-violet-400 to-purple-600" />
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm font-medium text-muted-foreground">
                               Taux de Résolution
                             </p>
-                            <p className="text-3xl font-bold mt-1">
+                            <p className="text-3xl font-bold mt-1 bg-gradient-to-r from-violet-600 to-purple-500 dark:from-violet-400 dark:to-purple-300 bg-clip-text text-transparent">
                               {analytics?.overview.resolutionRate != null
                                 ? `${(analytics.overview.resolutionRate * 100).toFixed(1)}%`
                                 : "—"}
@@ -1519,18 +1535,18 @@ export default function AdminDashboard() {
                             <div className="flex items-center gap-1 mt-2">
                               {analytics?.overview.resolutionRate != null &&
                               analytics.overview.resolutionRate >= 0.9 ? (
-                                <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                                <TrendingUp className="h-3.5 w-3.5 text-violet-500" />
                               ) : (
-                                <TrendingDown className="h-3.5 w-3.5 text-yellow-500" />
+                                <TrendingDown className="h-3.5 w-3.5 text-orange-500" />
                               )}
-                              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                              <span className="text-xs text-violet-600 dark:text-violet-400 font-medium">
                                 Temps moyen :{" "}
                                 {analytics?.overview.avgResponseTimeSeconds || 0}s
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-center h-14 w-14 rounded-xl bg-purple-100 dark:bg-purple-900/30">
-                            <Euro className="h-7 w-7 text-purple-600 dark:text-purple-400" />
+                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-br from-violet-400 to-purple-600 shadow-lg shadow-purple-500/20">
+                            <Euro className="h-7 w-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
@@ -2742,7 +2758,7 @@ export default function AdminDashboard() {
             <div className="space-y-6">
               <div className="space-y-6">
                 {/* Filters */}
-                <Card className="kpi-card-emerald premium-card border-l-4 border-l-emerald-500">
+                <Card className="premium-card">
                   <CardContent className="p-4">
                     <div className="flex flex-col sm:flex-row gap-3">
                       <Select
@@ -2788,68 +2804,72 @@ export default function AdminDashboard() {
 
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Card className="kpi-card-amber premium-card border-l-4 border-l-amber-500">
-                    <CardContent className="p-4">
+                  <Card className="premium-card border-0 overflow-hidden">
+                    <CardContent className="p-4 relative">
+                      <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-400 to-teal-600" />
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm font-medium text-muted-foreground">
                             Total
                           </p>
-                          <p className="text-2xl font-bold mt-1">
+                          <p className="text-2xl font-bold mt-1 bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent">
                             {formatCurrency(billingStats.total)}
                           </p>
                         </div>
-                        <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                          <Euro className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                        <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-lg shadow-emerald-500/20">
+                          <Euro className="h-5 w-5 text-white" />
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                  <Card className="kpi-card-blue premium-card border-l-4 border-l-blue-500">
-                    <CardContent className="p-4">
+                  <Card className="premium-card border-0 overflow-hidden">
+                    <CardContent className="p-4 relative">
+                      <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-yellow-400 to-amber-600" />
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm font-medium text-muted-foreground">
                             En attente
                           </p>
-                          <p className="text-2xl font-bold mt-1">
+                          <p className="text-2xl font-bold mt-1 bg-gradient-to-r from-yellow-600 to-amber-500 dark:from-yellow-400 dark:to-amber-300 bg-clip-text text-transparent">
                             {formatCurrency(billingStats.pending)}
                           </p>
                         </div>
-                        <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
-                          <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                        <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-gradient-to-br from-yellow-400 to-amber-600 shadow-lg shadow-amber-500/20">
+                          <Clock className="h-5 w-5 text-white" />
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                  <Card className="kpi-card-rose premium-card border-l-4 border-l-rose-500">
-                    <CardContent className="p-4">
+                  <Card className="premium-card border-0 overflow-hidden">
+                    <CardContent className="p-4 relative">
+                      <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-green-400 to-emerald-600" />
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-muted-foreground">Payé</p>
-                          <p className="text-2xl font-bold mt-1">
+                          <p className="text-sm font-medium text-muted-foreground">Payé</p>
+                          <p className="text-2xl font-bold mt-1 bg-gradient-to-r from-green-600 to-emerald-500 dark:from-green-400 dark:to-emerald-300 bg-clip-text text-transparent">
                             {formatCurrency(billingStats.paid)}
                           </p>
                         </div>
-                        <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-green-100 dark:bg-green-900/30">
-                          <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-gradient-to-br from-green-400 to-emerald-600 shadow-lg shadow-green-500/20">
+                          <CheckCircle className="h-5 w-5 text-white" />
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                  <Card className="premium-card">
-                    <CardContent className="p-4">
+                  <Card className="premium-card border-0 overflow-hidden">
+                    <CardContent className="p-4 relative">
+                      <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-rose-400 to-red-600" />
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm font-medium text-muted-foreground">
                             Remboursé
                           </p>
-                          <p className="text-2xl font-bold mt-1">
+                          <p className="text-2xl font-bold mt-1 bg-gradient-to-r from-rose-600 to-red-500 dark:from-rose-400 dark:to-red-300 bg-clip-text text-transparent">
                             {formatCurrency(billingStats.refunded)}
                           </p>
                         </div>
-                        <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-red-100 dark:bg-red-900/30">
-                          <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                        <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-gradient-to-br from-rose-400 to-red-600 shadow-lg shadow-rose-500/20">
+                          <AlertTriangle className="h-5 w-5 text-white" />
                         </div>
                       </div>
                     </CardContent>
