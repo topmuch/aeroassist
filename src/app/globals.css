@@ -41,77 +41,109 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-navy: var(--navy);
+  --color-navy-light: var(--navy-light);
+  --color-navy-dark: var(--navy-dark);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   AEROASSIST — Premium Light Mode
+   Inspired by aviation analytics dashboards: clean white, deep blue accents
+   ═══════════════════════════════════════════════════════════════════════════ */
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #f0f4f8;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #1e3a5f;
+  --primary-foreground: #ffffff;
+  --secondary: #e8edf5;
+  --secondary-foreground: #1e3a5f;
+  --muted: #e2e8f0;
+  --muted-foreground: #64748b;
+  --accent: #dbeafe;
+  --accent-foreground: #1e3a5f;
+  --destructive: #dc2626;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #1e3a5f;
+  --chart-1: #1e40af;
+  --chart-2: #059669;
+  --chart-3: #d97706;
+  --chart-4: #7c3aed;
+  --chart-5: #dc2626;
+  --sidebar: #0f2744;
+  --sidebar-foreground: #cbd5e1;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1e3a5f;
+  --sidebar-accent-foreground: #93c5fd;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #3b82f6;
+  --gold: #d4a853;
+  --gold-light: #f5e6c4;
+  --navy: #0f2744;
+  --navy-light: #1e3a5f;
+  --navy-dark: #0a1929;
+  --surface: #f8fafc;
+  --surface-elevated: #ffffff;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   AEROASSIST — Luxurious Dark Mode
+   Deep navy, slate surfaces, gold accents, premium glassmorphism
+   ═══════════════════════════════════════════════════════════════════════════ */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #060a13;
+  --foreground: #e2e8f0;
+  --card: #0c1322;
+  --card-foreground: #e2e8f0;
+  --popover: #0c1322;
+  --popover-foreground: #e2e8f0;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #131c31;
+  --secondary-foreground: #94a3b8;
+  --muted: #131c31;
+  --muted-foreground: #64748b;
+  --accent: #1a2744;
+  --accent-foreground: #93c5fd;
+  --destructive: #ef4444;
+  --border: rgba(148, 163, 184, 0.08);
+  --input: rgba(148, 163, 184, 0.12);
+  --ring: #3b82f6;
+  --chart-1: #3b82f6;
+  --chart-2: #10b981;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ef4444;
+  --sidebar: #080d18;
+  --sidebar-foreground: #94a3b8;
+  --sidebar-primary: #d4a853;
+  --sidebar-primary-foreground: #080d18;
+  --sidebar-accent: #131c31;
+  --sidebar-accent-foreground: #d4a853;
+  --sidebar-border: rgba(212, 168, 83, 0.1);
+  --sidebar-ring: #d4a853;
+  --gold: #d4a853;
+  --gold-light: #2a2215;
+  --navy: #0f1d32;
+  --navy-light: #1a2744;
+  --navy-dark: #060a13;
+  --surface: #0c1322;
+  --surface-elevated: #131c31;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Base Styles
+   ═══════════════════════════════════════════════════════════════════════════ */
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -119,4 +151,196 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Custom Scrollbar (Luxurious)
+   ═══════════════════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.4);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(212, 168, 83, 0.15);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 168, 83, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Premium Card Styles
+   ═══════════════════════════════════════════════════════════════════════════ */
+.premium-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  transition: all 0.3s ease;
+}
+.premium-card:hover {
+  border-color: rgba(59, 130, 246, 0.2);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+.dark .premium-card {
+  background: linear-gradient(135deg, rgba(12, 19, 34, 0.9), rgba(19, 28, 49, 0.6));
+  backdrop-filter: blur(20px);
+  border-color: rgba(148, 163, 184, 0.06);
+}
+.dark .premium-card:hover {
+  border-color: rgba(212, 168, 83, 0.15);
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(212, 168, 83, 0.05);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   KPI Card Glow Effects (Dark Mode)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.dark .kpi-card-blue {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(12, 19, 34, 0.9));
+  border-color: rgba(59, 130, 246, 0.15);
+}
+.dark .kpi-card-emerald {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(12, 19, 34, 0.9));
+  border-color: rgba(16, 185, 129, 0.15);
+}
+.dark .kpi-card-amber {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(12, 19, 34, 0.9));
+  border-color: rgba(245, 158, 11, 0.15);
+}
+.dark .kpi-card-purple {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(12, 19, 34, 0.9));
+  border-color: rgba(139, 92, 246, 0.15);
+}
+.dark .kpi-card-rose {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.08), rgba(12, 19, 34, 0.9));
+  border-color: rgba(244, 63, 94, 0.15);
+}
+.dark .kpi-card-gold {
+  background: linear-gradient(135deg, rgba(212, 168, 83, 0.08), rgba(12, 19, 34, 0.9));
+  border-color: rgba(212, 168, 83, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Sidebar Styles
+   ═══════════════════════════════════════════════════════════════════════════ */
+.admin-sidebar {
+  background: linear-gradient(180deg, #0a1929, #0f2744);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+.dark .admin-sidebar {
+  background: linear-gradient(180deg, #060a13 0%, #0a1020 100%);
+  border-right: 1px solid rgba(212, 168, 83, 0.08);
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  border-radius: 0.5rem;
+  color: #94a3b8;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sidebar-nav-item:hover {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.05);
+}
+.dark .sidebar-nav-item:hover {
+  color: #f1f5f9;
+  background: rgba(212, 168, 83, 0.06);
+}
+.sidebar-nav-item.active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #1e40af, #3b82f6);
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.3);
+}
+.dark .sidebar-nav-item.active {
+  color: #080d18;
+  background: linear-gradient(135deg, #d4a853, #c9a84c);
+  box-shadow: 0 2px 16px rgba(212, 168, 83, 0.25);
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Header Bar
+   ═══════════════════════════════════════════════════════════════════════════ */
+.admin-header {
+  background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.dark .admin-header {
+  background: linear-gradient(135deg, #0a1020 0%, #131c31 50%, #0a1020 100%);
+  border-bottom: 1px solid rgba(212, 168, 83, 0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Gold Accent Utilities
+   ═══════════════════════════════════════════════════════════════════════════ */
+.text-gold { color: #d4a853; }
+.dark .text-gold { color: #d4a853; }
+.bg-gold { background-color: #d4a853; }
+.dark .bg-gold { background-color: #d4a853; }
+.border-gold { border-color: rgba(212, 168, 83, 0.3); }
+.dark .border-gold { border-color: rgba(212, 168, 83, 0.2); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Table Styling
+   ═══════════════════════════════════════════════════════════════════════════ */
+.dark table {
+  border-color: rgba(148, 163, 184, 0.06);
+}
+.dark thead {
+  background: rgba(19, 28, 49, 0.5);
+}
+.dark tbody tr {
+  border-bottom-color: rgba(148, 163, 184, 0.04);
+}
+.dark tbody tr:hover {
+  background: rgba(212, 168, 83, 0.03);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Animated Gold Shimmer (for premium elements)
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes gold-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.gold-shimmer {
+  background: linear-gradient(
+    90deg,
+    #d4a853 0%,
+    #f5e6c4 25%,
+    #d4a853 50%,
+    #f5e6c4 75%,
+    #d4a853 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gold-shimmer 4s linear infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Smooth Transitions for Theme Switch
+   ═══════════════════════════════════════════════════════════════════════════ */
+body,
+.card,
+.premium-card,
+.admin-sidebar,
+.admin-header {
+  transition: background-color 0.4s ease, border-color 0.4s ease, color 0.3s ease;
 }

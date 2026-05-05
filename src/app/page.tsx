@@ -88,7 +88,7 @@ export default function Home() {
             transition={{ duration: 0.4, ease: "easeInOut" }}
             className="pt-16"
           >
-            <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 md:p-8 bg-gradient-to-br from-gray-50 via-emerald-50/30 to-teal-50/20">
+            <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 md:p-8 bg-gradient-to-br from-gray-50 via-emerald-50/30 to-teal-50/20 dark:from-[#060a13] dark:via-[#0a1020] dark:to-[#060a13]">
               <WhatsAppChat />
             </div>
           </motion.main>
@@ -104,9 +104,7 @@ export default function Home() {
             transition={{ duration: 0.4, ease: "easeInOut" }}
             className="pt-16"
           >
-            <div className="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto">
-              <AdminDashboard />
-            </div>
+            <AdminDashboard />
           </motion.main>
         )}
       </AnimatePresence>
