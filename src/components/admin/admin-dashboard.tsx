@@ -575,6 +575,11 @@ export default function AdminDashboard() {
   const [kbStatusFilter, setKbStatusFilter] = useState("all");
   const [kbPage, setKbPage] = useState(1);
   const [kbDialogOpen, setKbDialogOpen] = useState(false);
+  const [newKbTitle, setNewKbTitle] = useState("");
+  const [newKbCategory, setNewKbCategory] = useState("general");
+  const [newKbStatus, setNewKbStatus] = useState("draft");
+  const [newKbContent, setNewKbContent] = useState("");
+  const [kbCreating, setKbCreating] = useState(false);
   const kbPerPage = 10;
 
   // ─── AI Config state (local only) ───────────────────────────────────────
@@ -1104,6 +1109,35 @@ export default function AdminDashboard() {
       // Error handling silent - dialog stays open
     } finally {
       setModulesLoading(false);
+    }
+  };
+
+  const handleCreateKbArticle = async () => {
+    if (!newKbTitle.trim() || !newKbContent.trim()) return;
+    setKbCreating(true);
+    try {
+      const res = await fetch("/api/knowledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newKbTitle.trim(),
+          content: newKbContent.trim(),
+          category: newKbCategory,
+          status: newKbStatus,
+        }),
+      });
+      if (res.ok) {
+        setKbDialogOpen(false);
+        setNewKbTitle("");
+        setNewKbCategory("general");
+        setNewKbStatus("draft");
+        setNewKbContent("");
+        fetchKnowledge();
+      }
+    } catch {
+      // Error creating KB article
+    } finally {
+      setKbCreating(false);
     }
   };
 
@@ -1752,6 +1786,32 @@ export default function AdminDashboard() {
                               <Switch
                                 checked={user.isActive}
                                 aria-label={`Statut de ${user.name}`}
+                                onCheckedChange={async (checked) => {
+                                  // Optimistic update
+                                  setUsers((prev) =>
+                                    prev.map((u) =>
+                                      u.id === user.id
+                                        ? { ...u, isActive: checked }
+                                        : u
+                                    )
+                                  );
+                                  try {
+                                    await fetch("/api/users", {
+                                      method: "PATCH",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ id: user.id, isActive: checked }),
+                                    });
+                                  } catch {
+                                    // Revert on failure
+                                    setUsers((prev) =>
+                                      prev.map((u) =>
+                                        u.id === user.id
+                                          ? { ...u, isActive: !checked }
+                                          : u
+                                      )
+                                    );
+                                  }
+                                }}
                               />
                             </TableCell>
                             <TableCell className="text-right">
@@ -2136,12 +2196,14 @@ export default function AdminDashboard() {
                           <Input
                             id="kb-title"
                             placeholder="Titre de l'article"
+                            value={newKbTitle}
+                            onChange={(e) => setNewKbTitle(e.target.value)}
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div className="grid gap-2">
                             <Label>Catégorie</Label>
-                            <Select defaultValue="general">
+                            <Select value={newKbCategory} onValueChange={setNewKbCategory}>
                               <SelectTrigger className="w-full">
                                 <SelectValue />
                               </SelectTrigger>
@@ -2161,7 +2223,7 @@ export default function AdminDashboard() {
                           </div>
                           <div className="grid gap-2">
                             <Label>Statut</Label>
-                            <Select defaultValue="draft">
+                            <Select value={newKbStatus} onValueChange={setNewKbStatus}>
                               <SelectTrigger className="w-full">
                                 <SelectValue />
                               </SelectTrigger>
@@ -2179,6 +2241,8 @@ export default function AdminDashboard() {
                             id="kb-content"
                             placeholder="Contenu de l'article..."
                             rows={5}
+                            value={newKbContent}
+                            onChange={(e) => setNewKbContent(e.target.value)}
                           />
                         </div>
                       </div>
@@ -2189,8 +2253,15 @@ export default function AdminDashboard() {
                         >
                           Annuler
                         </Button>
-                        <Button onClick={() => setKbDialogOpen(false)}>
-                          Créer l&apos;article
+                        <Button
+                          disabled={kbCreating || !newKbTitle.trim() || !newKbContent.trim()}
+                          onClick={handleCreateKbArticle}
+                        >
+                          {kbCreating ? (
+                            <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Création...</>
+                          ) : (
+                            "Créer l'article"
+                          )}
                         </Button>
                       </DialogFooter>
                     </DialogContent>
