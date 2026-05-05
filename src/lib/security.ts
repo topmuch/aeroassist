@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { ZodSchema, ZodError } from 'zod';
+import { ZodSchema } from 'zod';
 import logger, { logSecurityEvent } from './logger';
 
 // ── In-Memory Rate Limiter ───────────────────────────────────────
@@ -186,22 +186,6 @@ export function handleCors(
 // ── Zod Validation Helper ────────────────────────────────────────
 
 /**
- * Validate request body with Zod schema.
- * Returns parsed data or error response.
- */
-export function validateBody<T>(request: NextRequest, schema: ZodSchema<T>): {
-  success: true;
-  data: T;
-} | {
-  success: false;
-  response: NextResponse;
-} {
-  // We can't read body twice in Next.js, so return a promise
-  // This is handled differently - caller must pass the parsed body
-  throw new Error('Use validateBodyWithParsed() instead');
-}
-
-/**
  * Validate already-parsed body with Zod schema.
  */
 export function validateBodyWithParsed<T>(
@@ -217,7 +201,7 @@ export function validateBodyWithParsed<T>(
   const result = schema.safeParse(body);
 
   if (!result.success) {
-    const issues = (result.error as ZodError).issues.map((issue) => ({
+    const issues = result.error.issues.map((issue) => ({
       field: issue.path.join('.'),
       message: issue.message,
       code: issue.code,

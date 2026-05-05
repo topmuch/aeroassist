@@ -101,7 +101,11 @@ function getConfig(): WhatsAppConfig {
   const apiVersion = process.env.WHATSAPP_API_VERSION || 'v17.0';
 
   if (!token || !phoneId || !verifyToken) {
-    logger.warn('WhatsApp configuration incomplete. Set WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_VERIFY_TOKEN.');
+    logSecurityEvent('whatsapp_config_incomplete', {
+      hasToken: !!token,
+      hasPhoneId: !!phoneId,
+      hasVerifyToken: !!verifyToken,
+    });
   }
 
   return {
@@ -127,6 +131,9 @@ export function verifyWebhookSignature(
 
   // In development/test, skip signature verification if secret is not configured
   if (!appSecret) {
+    logSecurityEvent('webhook_sig_skipped', {
+      warning: 'WHATSAPP_APP_SECRET not configured — signature verification DISABLED. Set this in production!',
+    });
     return { valid: true, warning: 'Signature verification skipped (no WHATSAPP_APP_SECRET)' };
   }
 

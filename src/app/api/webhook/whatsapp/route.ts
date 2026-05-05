@@ -32,6 +32,7 @@ import {
   applyRateLimit,
   WEBHOOK_RATE_LIMIT,
   getSecurityHeaders,
+  withSecurityHeaders,
   getClientIp,
   startTimer,
 } from '@/lib/security';
@@ -64,7 +65,7 @@ function detectLanguage(text: string): string {
 
 // ── Knowledge Base Search (RAG-like) ─────────────────────────────
 
-async function searchKnowledgeBase(query: string, language: string): Promise<string> {
+async function searchKnowledgeBase(query: string): Promise<string> {
   try {
     // Extract keywords from the query for searching
     const keywords = query
@@ -270,14 +271,12 @@ export async function GET(request: NextRequest) {
 
     logSecurityEvent('webhook_verify_failed', { mode, tokenMatch: false });
     return withSecurityHeaders(
-      NextResponse.json({ error: 'Verification failed' }, { status: result.statusCode }),
-      request
+      NextResponse.json({ error: 'Verification failed' }, { status: result.statusCode })
     );
   } catch (error) {
     logger.error('Webhook GET error', { error: error instanceof Error ? error.message : String(error) });
     return withSecurityHeaders(
-      NextResponse.json({ error: 'Internal error' }, { status: 500 }),
-      request
+      NextResponse.json({ error: 'Internal error' }, { status: 500 })
     );
   }
 }
@@ -306,8 +305,7 @@ export async function POST(request: NextRequest) {
         error: signatureResult.error,
       });
       return withSecurityHeaders(
-        NextResponse.json({ error: 'Invalid signature' }, { status: 401 }),
-        request
+        NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
       );
     }
 
@@ -323,8 +321,7 @@ export async function POST(request: NextRequest) {
     // If no messages, acknowledge receipt
     if (messages.length === 0) {
       return withSecurityHeaders(
-        NextResponse.json({ status: 'received', processed: 0 }),
-        request
+        NextResponse.json({ status: 'received', processed: 0 })
       );
     }
 
@@ -360,7 +357,7 @@ export async function POST(request: NextRequest) {
       ...(errors.length > 0 && { errors }),
     });
 
-    return withSecurityHeaders(response, request);
+    return withSecurityHeaders(response);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     logger.error('Webhook POST critical error', {
@@ -371,8 +368,7 @@ export async function POST(request: NextRequest) {
 
     // Always return 200 to Meta (even on errors) to prevent webhook redelivery
     return withSecurityHeaders(
-      NextResponse.json({ status: 'error', error: 'Internal processing error' }),
-      request
+      NextResponse.json({ status: 'error', error: 'Internal processing error' })
     );
   }
 }
@@ -474,7 +470,7 @@ async function processInboundMessage(
   });
 
   // ── 8. RAG Search ──
-  const ragContext = await searchKnowledgeBase(userText, language);
+  const ragContext = await searchKnowledgeBase(userText);
 
   // ── Edge Case: Knowledge base empty + simple greeting ──
   if (!ragContext && (intent === 'greeting' || intent === 'goodbye')) {
@@ -586,14 +582,4 @@ async function storeOutboundMessage(
 function redactPhone(phone: string): string {
   if (phone.length <= 4) return '[REDACTED]';
   return phone.slice(0, 3) + '***' + phone.slice(-2);
-}
-
-// ── Helper: Add security headers ─────────────────────────────────
-
-function withSecurityHeaders(response: NextResponse, _request: NextRequest): NextResponse {
-  const headers = getSecurityHeaders();
-  for (const [key, value] of Object.entries(headers)) {
-    response.headers.set(key, value);
-  }
-  return response;
 }
