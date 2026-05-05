@@ -590,6 +590,21 @@ export default function AdminDashboard() {
   const [selectedModel, setSelectedModel] = useState("llama-3.3-70b-versatile");
   const [aiConfigSaved, setAiConfigSaved] = useState(false);
 
+  // AI Logs state
+  const [aiLogs, setAiLogs] = useState<Array<{
+    id: string;
+    sessionId: string;
+    userMessage: string;
+    aiResponse: string;
+    intent: string;
+    confidence: number;
+    timestamp: string;
+  }>>([]);
+  const [aiLogsLoading, setAiLogsLoading] = useState(false);
+  const [aiLogsTotal, setAiLogsTotal] = useState(0);
+  const [aiLogsPage, setAiLogsPage] = useState(1);
+  const aiLogsPerPage = 10;
+
   // ─── Modules state ──────────────────────────────────────────────────────
   const [modules, setModules] = useState<Module[]>([]);
   const [modulesLoading, setModulesLoading] = useState(true);
@@ -816,28 +831,79 @@ export default function AdminDashboard() {
     fetchFlights();
   }, [fetchFlights]);
 
+  // Auto-refresh flights every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchFlights();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchFlights]);
+
   useEffect(() => {
     fetchReservations();
   }, [fetchReservations]);
 
-  // ─── Load AI config from localStorage ───────────────────────────────────
-  useEffect(() => {
+  // ─── AI Config state from API ────────────────────────────────────────────
+  const [aiConfigLoading, setAiConfigLoading] = useState(false);
+
+  const fetchAiConfig = useCallback(async () => {
+    setAiConfigLoading(true);
     try {
-      const saved = localStorage.getItem("aeroassist-ai-config");
-      if (saved) {
-        const config = JSON.parse(saved);
-        if (config.model) setSelectedModel(config.model);
-        if (config.systemPrompt) setSystemPrompt(config.systemPrompt);
-        if (config.confidenceThreshold)
-          setConfidenceThreshold(config.confidenceThreshold);
-        if (config.languages) setSelectedLanguages(config.languages);
-        if (config.fallbackEnabled !== undefined)
-          setFallbackEnabled(config.fallbackEnabled);
+      const res = await fetch("/api/ai/config");
+      const data = await res.json();
+      if (data.success && data.data) {
+        if (data.data.model_name) setSelectedModel(data.data.model_name);
+        if (data.data.system_prompt) setSystemPrompt(data.data.system_prompt);
+        if (data.data.confidence_threshold != null)
+          setConfidenceThreshold(data.data.confidence_threshold);
+        if (data.data.supported_languages)
+          setSelectedLanguages(data.data.supported_languages);
+        if (data.data.human_fallback_enabled !== undefined)
+          setFallbackEnabled(data.data.human_fallback_enabled);
       }
     } catch {
-      // localStorage not available
+      // Fallback: try localStorage
+      try {
+        const saved = localStorage.getItem("aeroassist-ai-config");
+        if (saved) {
+          const config = JSON.parse(saved);
+          if (config.model) setSelectedModel(config.model);
+          if (config.systemPrompt) setSystemPrompt(config.systemPrompt);
+          if (config.confidenceThreshold) setConfidenceThreshold(config.confidenceThreshold);
+          if (config.languages) setSelectedLanguages(config.languages);
+          if (config.fallbackEnabled !== undefined) setFallbackEnabled(config.fallbackEnabled);
+        }
+      } catch { /* silent */ }
+    } finally {
+      setAiConfigLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    fetchAiConfig();
+  }, [fetchAiConfig]);
+
+  // ─── Fetch: AI Logs ─────────────────────────────────────────────────────────
+  const fetchAiLogs = useCallback(async (page?: number) => {
+    setAiLogsLoading(true);
+    try {
+      const p = page || aiLogsPage;
+      const res = await fetch(`/api/ai/logs?page=${p}&limit=${aiLogsPerPage}`);
+      const data = await res.json();
+      if (data.success && data.data) {
+        setAiLogs(data.data.logs);
+        setAiLogsTotal(data.data.pagination.total);
+      }
+    } catch {
+      // AI logs fetch failed
+    } finally {
+      setAiLogsLoading(false);
+    }
+  }, [aiLogsPage, aiLogsPerPage]);
+
+  useEffect(() => {
+    fetchAiLogs();
+  }, [fetchAiLogs]);
 
   // ─── Derived Data ───────────────────────────────────────────────────────
 
@@ -1140,20 +1206,34 @@ export default function AdminDashboard() {
   };
 
   const saveAiConfig = async () => {
+    setAiConfigLoading(true);
     const config = {
-      model: selectedModel,
-      systemPrompt,
-      confidenceThreshold,
-      languages: selectedLanguages,
-      fallbackEnabled,
-      savedAt: new Date().toISOString(),
+      model_name: selectedModel,
+      system_prompt: systemPrompt,
+      confidence_threshold: confidenceThreshold,
+      supported_languages: selectedLanguages,
+      human_fallback_enabled: fallbackEnabled,
     };
     try {
-      localStorage.setItem("aeroassist-ai-config", JSON.stringify(config));
-      setAiConfigSaved(true);
-      setTimeout(() => setAiConfigSaved(false), 2000);
+      // Save to API (real DB persistence)
+      const res = await fetch("/api/ai/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
+      if (res.ok) {
+        setAiConfigSaved(true);
+        setTimeout(() => setAiConfigSaved(false), 3000);
+      }
     } catch {
-      // localStorage not available
+      // Fallback: save to localStorage
+      try {
+        localStorage.setItem("aeroassist-ai-config", JSON.stringify(config));
+        setAiConfigSaved(true);
+        setTimeout(() => setAiConfigSaved(false), 3000);
+      } catch { /* silent */ }
+    } finally {
+      setAiConfigLoading(false);
     }
   };
 
@@ -2407,13 +2487,87 @@ export default function AdminDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
-                  <MessageCircle className="h-10 w-10 opacity-30" />
-                  <p className="text-sm text-center">
-                    Les journaux IA seront disponibles une fois les conversations
-                    enregistrées via l&apos;assistant.
-                  </p>
-                </div>
+                {aiLogsLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : aiLogs.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+                    <MessageCircle className="h-10 w-10 opacity-30" />
+                    <p className="text-sm text-center">
+                      Les journaux IA seront disponibles une fois les conversations
+                      enregistrées via l&apos;assistant.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <ScrollArea className="max-h-[420px]">
+                      {aiLogs.map((log) => (
+                        <div
+                          key={log.id}
+                          className="border rounded-lg p-3 mb-3 hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className={
+                                (log.confidence || 0) >= 0.9
+                                  ? "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                  : (log.confidence || 0) >= 0.7
+                                    ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                    : "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400"
+                              }>
+                                {(log.confidence || 0) * 100 >= 90 ? "Excellent" : (log.confidence || 0) * 100 >= 70 ? "Bon" : "Faible"} ({((log.confidence || 0) * 100).toFixed(0)}%)
+                              </Badge>
+                              <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-200">
+                                {intentLabelMap[log.intent] || log.intent}
+                              </Badge>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(log.timestamp).toLocaleString("fr-FR")}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs font-medium text-blue-600 dark:text-blue-400 mt-0.5 shrink-0">User:</span>
+                              <p className="text-sm text-muted-foreground line-clamp-2">{log.userMessage}</p>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0">IA:</span>
+                              <p className="text-sm line-clamp-3">{log.aiResponse}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </ScrollArea>
+                    {/* Pagination */}
+                    {aiLogsTotal > aiLogsPerPage && (
+                      <div className="flex items-center justify-between pt-3 border-t">
+                        <p className="text-sm text-muted-foreground">
+                          {aiLogsTotal} échange{aiLogsTotal > 1 ? "s" : ""} au total
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={aiLogsPage <= 1}
+                            onClick={() => { setAiLogsPage((p) => p - 1); fetchAiLogs(aiLogsPage - 1); }}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          <span className="text-sm">{aiLogsPage} / {Math.ceil(aiLogsTotal / aiLogsPerPage)}</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={aiLogsPage >= Math.ceil(aiLogsTotal / aiLogsPerPage)}
+                            onClick={() => { setAiLogsPage((p) => p + 1); fetchAiLogs(aiLogsPage + 1); }}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
