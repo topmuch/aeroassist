@@ -165,7 +165,7 @@ const INTENT_KEYWORDS: Record<string, string[]> = {
   flight_status: ['vol', 'départ', 'arrivée', 'retard', 'annulé', 'gate', 'porte', 'terminal', 'embarquement', 'atterrissage', 'flight', 'décoller', 'board'],
   restaurant: ['restaurant', 'manger', 'repas', 'café', 'dîner', 'déjeuner', 'boire', 'faim', 'soif', 'gastronomie', 'eat', 'food', 'hungry'],
   shops: ['boutique', 'acheter', 'magasin', 'duty free', 'shopping', 'cadeau', 'promotion', 'soldes', 'achat', 'shop', 'buy', 'store'],
-  service_info: ['wifi', 'salon', 'vip', 'consigne', 'bagage', 'toilette', 'détente', 'zone', 'service', 'douane', 'sécurité', 'loung', 'wifi', 'restroom'],
+  service_info: ['wifi', 'salon', 'vip', 'consigne', 'bagage', 'toilette', 'détente', 'zone', 'service', 'douane', 'sécurité', 'loung', 'restroom'],
   transport: ['taxi', 'bus', 'rer', 'navette', 'parking', 'voiture', 'train', 'métro', 'transport', 'accès', 'cab', 'uber'],
   reservation: ['réserver', 'réservation', 'louer', 'hôtel', 'chambre', 'salon vip', 'location', 'book', 'reserve', 'hotel'],
   lost_baggage: ['bagage perdu', 'valise', 'retrouver', 'objet perdu', 'perdu', 'lost', 'luggage', 'suitcase'],

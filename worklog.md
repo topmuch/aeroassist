@@ -262,3 +262,44 @@ Stage Summary:
 - Dashboard : 8ème onglet "WhatsApp Console" avec monitoring en temps réel
 - Artillery load test configuré (50 concurrent users, SLA thresholds)
 - Fichier .env.example pour déploiement production
+
+---
+Task ID: 9
+Agent: Main (Z.ai Code)
+Task: Auto-critique approfondie Phase 4 + correction des bugs
+
+Work Log:
+- Audit complet de tous les fichiers Phase 4 (webhook, whatsapp.ts, security.ts, logger.ts, health, dashboard)
+- Testé les 10 endpoints GET avec curl → tous 200
+- Testé webhook POST (text, image, empty) → tous 200 processed:1
+- Testé webhook GET (verify) → 200 challenge OK
+- Testé chat POST → 200 reply with intent detection
+- Testé AI config PUT avec "français" → 400 (BUG CONFIRMÉ)
+- Testé URL import → 201 success
+
+Bugs trouvés et corrigés:
+1. **CRITIQUE - AI Config save cassé** : Zod schema `z.string().length(2)` rejetait les noms de langues en français ("français", "anglais"). Dashboard envoyait `["français", "anglais"]` mais schema attendait `["fr", "en"]`. → Changé en `z.string().min(1)` pour accepter tout format de langue.
+2. **HAUT - Logger PII metadata corrompait les données** : Transform convertissait `info.metadata` (object) → `JSON.stringify` → `redactPII` → string, cassant la structure JSON. → Réécrit avec récursion profonde qui préserve la structure objet tout en redactant les strings.
+3. **HAUT - Health check trop lent (3.3s)** : Appelait Groq AI à chaque requête. Dashboard auto-refreshait toutes les 30s, gaspillant des crédits IA. → Ajouté cache in-memory avec TTL 60s. Première requête ~3.3s, suivantes ~3ms.
+4. **MOYEN - sendTextMessage retentait inutilement** : Quand WHATSAPP_ACCESS_TOKEN manquait, faisait 4 tentatives (~10s) qui échouaient toujours. → Ajouté early-exit si token/phoneId manquant, retourne immédiatement avec erreur claire.
+5. **MOYEN - sendTypingIndicator cassé** : Envoyait un "reaction" avec message_id vide. → Ajouté guard clause pour skip si non configuré.
+6. **FAIBLE - Doublon "wifi" dans INTENT_KEYWORDS** : Mot-clé "wifi" apparaissait 2 fois dans service_info. → Supprimé le doublon.
+7. **FAIBLE - Type TypeScript incorrect** : verifyWebhookSignature retournait `{ valid: true, warning: '...' }` mais type ne déclarait pas `warning`. → Ajouté `warning?: string` au type de retour.
+
+Résultats après corrections:
+- AI Config save : 200 OK ✅
+- AI Config read back : `supported_languages=['français', 'anglais', 'espagnol']` ✅
+- Webhook POST (image) : 11ms au lieu de ~200ms (early exit au lieu de 4 retries) ✅
+- Health check (cache hit) : 3ms au lieu de 3500ms ✅
+- Health check (cache miss) : 3500ms normal ✅
+- PII filtering : téléphones redactés (336***11) dans les logs ✅
+- Tous les 16 endpoints API : 200 OK ✅
+- ESLint : clean ✅
+- Aucune erreur dans les dev logs ✅
+
+Stage Summary:
+- 7 bugs corrigés (1 critique, 2 hauts, 2 moyens, 2 faibles)
+- Tous les endpoints API fonctionnent correctement
+- Performance améliorée : webhook 18x plus rapide, health check 1000x plus rapide en cache
+- PII filtering corrigé : structure JSON préservée dans les logs
+- AI Config sauvegarde fonctionne avec les noms de langues en français

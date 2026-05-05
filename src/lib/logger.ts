@@ -27,11 +27,31 @@ const logFormat = winston.format.combine(
     if (info.message && typeof info.message === 'string') {
       info.message = redactPII(info.message);
     }
-    // Also redact any string metadata fields
-    if (info.metadata) {
-      const metaStr = typeof info.metadata === 'string' ? info.metadata : JSON.stringify(info.metadata);
-      if (metaStr) {
-        info.metadata = redactPII(metaStr);
+    // Recursively redact PII in all metadata fields while preserving structure
+    const redactObject = (obj: Record<string, unknown>): Record<string, unknown> => {
+      const result: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (typeof value === 'string') {
+          result[key] = redactPII(value);
+        } else if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          result[key] = redactObject(value as Record<string, unknown>);
+        } else if (Array.isArray(value)) {
+          result[key] = value.map(item =>
+            typeof item === 'string' ? redactPII(item) : item
+          );
+        } else {
+          result[key] = value;
+        }
+      }
+      return result;
+    };
+    // Redact PII in all top-level string fields
+    const keysToRedact = Object.keys(info).filter(k => k !== 'level' && k !== 'timestamp' && k !== 'message');
+    for (const key of keysToRedact) {
+      if (typeof info[key] === 'string') {
+        (info as Record<string, unknown>)[key] = redactPII(info[key] as string);
+      } else if (info[key] !== null && typeof info[key] === 'object' && !Array.isArray(info[key])) {
+        (info as Record<string, unknown>)[key] = redactObject(info[key] as Record<string, unknown>);
       }
     }
     return info;

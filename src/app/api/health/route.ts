@@ -124,9 +124,17 @@ async function checkDatabase(): Promise<ServiceStatus> {
   }
 }
 
-// ── AI Service Health Check ──────────────────────────────────────
+// ── AI Service Health Check (with 60s cache) ───────────────────────
+
+let aiHealthCache: { status: ServiceStatus; checkedAt: number } | null = null;
+const AI_HEALTH_CACHE_TTL = 60_000; // 60 seconds
 
 async function checkAIService(): Promise<ServiceStatus> {
+  // Return cached result if still fresh
+  if (aiHealthCache && Date.now() - aiHealthCache.checkedAt < AI_HEALTH_CACHE_TTL) {
+    return aiHealthCache.status;
+  }
+
   const start = Date.now();
   try {
     const zai = await ZAI.create();
@@ -136,24 +144,30 @@ async function checkAIService(): Promise<ServiceStatus> {
     const reply = completion?.choices?.[0]?.message?.content;
 
     if (!reply) {
-      return {
-        status: 'degraded',
+      const status = {
+        status: 'degraded' as const,
         latencyMs: Date.now() - start,
         error: 'AI returned empty response',
       };
+      aiHealthCache = { status, checkedAt: Date.now() };
+      return status;
     }
 
-    return {
-      status: 'up',
+    const status = {
+      status: 'up' as const,
       latencyMs: Date.now() - start,
       details: `AI responding (${reply.length} chars)`,
     };
+    aiHealthCache = { status, checkedAt: Date.now() };
+    return status;
   } catch (error) {
-    return {
-      status: 'down',
+    const status = {
+      status: 'down' as const,
       latencyMs: Date.now() - start,
       error: error instanceof Error ? error.message : 'AI service unavailable',
     };
+    aiHealthCache = { status, checkedAt: Date.now() };
+    return status;
   }
 }
 

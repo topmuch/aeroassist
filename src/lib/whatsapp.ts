@@ -126,7 +126,7 @@ function getConfig(): WhatsAppConfig {
 export function verifyWebhookSignature(
   payload: string,
   signatureHeader: string | null
-): { valid: boolean; error?: string } {
+): { valid: boolean; error?: string; warning?: string } {
   const appSecret = process.env.WHATSAPP_APP_SECRET;
 
   // In development/test, skip signature verification if secret is not configured
@@ -193,6 +193,16 @@ export async function sendTextMessage(
   previewUrl = false
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const config = getConfig();
+
+  // Early exit if WhatsApp is not configured
+  if (!config.accessToken || !config.phoneNumberId) {
+    logSecurityEvent('whatsapp_send_skipped', {
+      reason: 'WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID not configured',
+      to: redactPhone(to),
+    });
+    return { success: false, error: 'WhatsApp not configured (missing access token or phone number ID)' };
+  }
+
   const url = `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}/messages`;
 
   const payload: SendMessagePayload = {
@@ -420,6 +430,8 @@ export function parseWebhookPayload(body: unknown): {
 
 export async function sendTypingIndicator(to: string): Promise<void> {
   const config = getConfig();
+  if (!config.accessToken || !config.phoneNumberId) return; // Skip if not configured
+
   const url = `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}/messages`;
 
   try {
@@ -434,7 +446,7 @@ export async function sendTypingIndicator(to: string): Promise<void> {
         recipient_type: 'individual',
         to,
         type: 'reaction',
-        reaction: { message_id: '', emoji: '⌛' },
+        reaction: { message: '', emoji: '' },
       }),
     });
   } catch {

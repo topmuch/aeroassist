@@ -8,7 +8,7 @@ const aiConfigSchema = z.object({
   model_name: z.string().min(1, 'Model name is required'),
   system_prompt: z.string().min(10, 'System prompt must be at least 10 characters'),
   confidence_threshold: z.number().min(0).max(1).default(0.75),
-  supported_languages: z.array(z.string().length(2)).default(['fr', 'en']),
+  supported_languages: z.array(z.string().min(1)).default(['fr', 'en']),
   human_fallback_enabled: z.boolean().default(true),
   max_tokens: z.number().int().min(100).max(16000).default(2048),
   temperature: z.number().min(0).max(2).default(0.7),
