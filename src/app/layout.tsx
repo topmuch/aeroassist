@@ -16,13 +16,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "AeroAssist — Votre Assistant Aéroport Intelligent via WhatsApp",
   description:
-    "Simplifiez votre passage à l'aéroport avec AeroAssist. Infos vols en temps réel, restaurants, salons VIP, transport et Duty-Free — tout accessible directement sur WhatsApp grâce à l'IA.",
+    "Simplifiez votre passage à l'aéroport avec AeroAssist. Assistant IA propulsé par Groq, accessible via WhatsApp. Infos vols, restaurants, salons VIP, transport et Duty-Free.",
   keywords: [
     "AeroAssist",
     "assistant aéroport",
     "WhatsApp",
     "IA",
     "aéroport",
+    "Groq",
     "vol",
     "vols en temps réel",
     "salon VIP",

@@ -35,12 +35,11 @@ const QUICK_ACTIONS: QuickAction[] = [
   { id: 'help', label: 'Aide', icon: '❓', keywords: ['aide', 'help', '?', 'information'] },
 ]
 
-// ─── AI Response Generator ───────────────────────────────────────────────────
+// ─── Fallback Response Generator (used when API is unavailable) ───────────────
 
-function generateResponse(message: string): string {
+function generateFallbackResponse(message: string): string {
   const lower = message.toLowerCase()
 
-  // Flight keywords
   if (/vol|flight|vols|décollage|atterrissage|retard|annulé/.test(lower)) {
     return (
       `✈️ **Informations sur vos vols**
@@ -66,200 +65,102 @@ Souhaitez-vous recevoir une notification en cas de changement ? Je peux aussi vo
     )
   }
 
-  // Restaurant keywords
-  if (/restaurant|manger|restauration|déjeuner|dîner|café|cafe|bistrot/.test(lower)) {
+  if (/restaurant|manger|restauration|déjeuner|dîner|café/.test(lower)) {
     return (
       `🍽️ **Recommandations Restaurants**
 
 Voici les meilleures options disponibles à l'aéroport :
 
 **🍽️ Restaurants Gastronomiques**
-• **Le Chef's Table** — Terminal 2E, Hall L
-  Cuisine française raffinée, à partir de 45€
-• **Sushi Master** — Terminal 2F, Niveau Arrivées
-  Sushi frais et sashimi, 20-40€
+• **Le Chef's Table** — Terminal 2E, Hall L — À partir de 45€
+• **Sushi Master** — Terminal 2F, Niveau Arrivées — 20-40€
 
 **☕ Cafés & Bistros**
-• **Café Parisien** — Terminal 1, Niveau Départs
-  Croissants, quiches et café, 8-18€
-• **Pret A Manger** — Toutes les zones transit
-  Sandwichs et salades rapides, 6-12€
+• **Café Parisien** — Terminal 1, Niveau Départs — 8-18€
+• **Pret A Manger** — Toutes les zones transit — 6-12€
 
-**🍕 Cuisine Rapide**
-• **Baguette & Co** — Zone publique, Hall 4
-  Baguettes garnies, 7-13€
-• **Burger King** — Terminal 2D
-
-Voulez-vous une réservation ou des directions vers l'un de ces restaurants ? 📍`
+Voulez-vous une réservation ou des directions ? 📍`
     )
   }
 
-  // Duty-free keywords
   if (/duty|shop|boutique|magasin|acheter|shopping|parfum/.test(lower)) {
     return (
       `🛍️ **Boutiques Duty-Free**
 
-Profitez de prix exclusifs sans taxes dans nos boutiques !
+Profitez de prix exclusifs sans taxes !
 
-**💄 Beauté & Parfums**
-• **Sephora** — Terminal 2E & 2F
-  -30% sur les parfums Chanel, Dior, Guerlain
-• **MAC Cosmetics** — Terminal 2A
-  Maquillage et soins exclusifs
+**💄 Beauté & Parfums** — Sephora (T2E & T2F), MAC (T2A)
+**🍷 Spiritueux** — Nicolas (T2E), Fauchon (T2F)
+**⌚ Montres** — Longines (T2E), Hermès (T2F)
+**📱 Électronique** — Duty Free Tech (T2D) jusqu'à -20%
 
-**🍷 Spiritueux & Gastronomie**
-• **Nicolas** — Terminal 2E
-  Vins français, Champagne, Cognac
-• **Fauchon** — Terminal 2F
-  Épicerie fine et cadeaux gourmets
-
-**⌚ Montres & Maroquinerie**
-• **Longines** — Terminal 2E
-  Montres depuis 500€
-• **Hermès** — Terminal 2F
-  Maroquinerie et soieries
-
-**📱 Électronique**
-• **Duty Free Tech** — Terminal 2D
-  AirPods, iPhone, Samsung, jusqu'à -20%
-
-💡 *Astuce : Présentez votre carte d'embarquement pour des réductions supplémentaires !*`
+💡 *Présentez votre carte d'embarquement pour des réductions supplémentaires !*`
     )
   }
 
-  // Hotel keywords
-  if (/hôtel|hotel|hébergement|dormir|chambre|lodging/.test(lower)) {
+  if (/hôtel|hotel|hébergement|dormir|chambre/.test(lower)) {
     return (
       `🏨 **Hôtels & Hébergement**
 
-Besoin de vous reposer ? Voici nos recommandations :
-
 **🌟 Hôtels à l'aéroport**
-• **Hilton Paris CDG Airport** ⭐⭐⭐⭐
-  Situé entre T2 et T3 — À partir de 140€/nuit
-  Navette gratuite 24h/24
+• **Hilton CDG** — Entre T2 et T3 — À partir de 140€/nuit — Navette 24h/24
+• **Pullman CDG** — Terminal 2, Hall M — À partir de 160€/nuit
+• **citizenM CDG** — Terminal 3 — À partir de 89€/nuit
 
-• **Pullman Paris CDG Airport** ⭐⭐⭐⭐
-  Terminal 2, Hall M — À partir de 160€/nuit
-  Accès direct au terminal
+**💤 Capsules** — YOTELAIR (T2E) à partir de 45€/4h
 
-• **citizenM Paris CDG** ⭐⭐⭐
-  Terminal 3 — À partir de 89€/nuit
-  Design moderne, petit-déjeuner inclus
-
-**💤 Capsules & Repos**
-• **YOTELAIR** — Terminal 2E, Transit
-  Cabines à partir de 45€/4h
-  Douche et WiFi inclus
-
-• **Instant Paris** — Zone publique
-  Douches et espaces de repos, 15€/accès
-
-Puis-je vous aider à réserver une chambre ou à trouver des directions ? 🛎️`
+Puis-je vous aider à réserver ? 🛎️`
     )
   }
 
-  // VIP lounge keywords
-  if (/vip|salon|lounge|première|premiere|business|privé|prive/.test(lower)) {
+  if (/vip|salon|lounge|business|privé/.test(lower)) {
     return (
-      `👑 **Salons VIP & Lounges**
+      `👑 **Salons VIP**
 
-Découvrez nos espaces de détente exclusifs :
+**🥂 Air France La Première** — T2E, Hall L (Accès billet Première)
+**🌟 Air France Business** — T2E, Hall K & L (Billet Business / Flying Blue Gold+)
+**🏛️ ADP Lounge** — T2E & 2F — Accès payant 40€/3h — Boissons, snacks, WiFi
 
-**🥂 Salon Air France La Première**
-• Terminal 2E, Hall L — Accès billet Première uniquement
-• Champagne, spa, cuisine gastronomique
-
-**🌟 Salon Air France Business**
-• Terminal 2E, Hall K & Hall L
-• Buffet, douche, WiFi, espaces de travail
-• Accès : Billet Business / Flying Blue Gold+
-
-**🏛️ Aéroports de Paris Lounge**
-• Terminal 2E & 2F — Accès payant
-• Tarif : 40€ / accès de 3h
-• Boissons chaudes/froides, snacks, WiFi
-
-**💳 Priority Pass**
-• Accepté dans tous les salons partenaires
-• Carte disponible au point info
-
-Voulez-vous réserver un accès ou connaître le salon le plus proche de votre porte ? ✨`
+Voulez-vous réserver un accès ? ✨`
     )
   }
 
-  // Transport keywords
-  if (/transport|voiture|taxi|bus|navette|train|rer|métro|metro|parking/.test(lower)) {
+  if (/transport|voiture|taxi|bus|navette|train|rer|parking/.test(lower)) {
     return (
       `🚗 **Options de Transport**
 
-**🚕 Taxi & VTC**
-• Taxis officiels — Sortie Arrivées, Terminal 1/2
-  Paris centre : 53-65€ (jour) / 65-78€ (nuit)
-• Uber / Bolt — Points de prise en charge signalés
-  Trajet Paris centre : ~45-60€
+**🚕 Taxi** — Paris centre : 53-65€ (jour) / 65-78€ (nuit)
+**🚌 RoissyBus** — Direct Opéra — 16,20€ — ~60 min
+**🚆 RER B** — Paris centre — 11,45€ — ~35 min
+**🅿️ Parking** — À partir de 24€/jour + navette gratuite
 
-**🚌 Bus & Navettes**
-• **RoissyBus** — Direct Opéra (Paris)
-  Départ toutes les 15 min — 16,20€ — ~60 min
-• **Bus 350/351** — Gare du Nord / Nation
-  6€ — ~75 min
-
-**🚆 Train**
-• **RER B** — Gares CDG 1 & CDG 2 TGV
-  Paris centre : 11,45€ — ~35 min
-  Dessert : Gare du Nord, Châtelet, Saint-Michel, Denfert
-
-**🅿️ Parking**
-• Parc EF — Proche T1/T3 : 39€/jour
-• Parc CDG — Proche T2 : 45€/jour
-• Parking économique : 24€/jour + navette gratuite
-
-Où souhaitez-vous aller ? Je peux calculer le meilleur itinéraire pour vous ! 🗺️`
+Où souhaitez-vous aller ? 🗺️`
     )
   }
 
-  // Help keywords
-  if (/aide|help|\?|information|comment|c'est quoi|quel/.test(lower)) {
+  if (/aide|help|\?|information|comment/.test(lower)) {
     return (
       `❓ **Centre d'Aide AeroAssist**
 
-Je suis là pour vous aider ! Voici ce que je peux faire :
+✈️ Vols — 🍽️ Restaurants — 🛍️ Duty-Free — 🏨 Hôtels
+🚗 Transport — 👑 Salons VIP — 📍 Navigation — 📋 Formalités
 
-✈️ **Vols** — Statut, portes, retards, annulations
-🍽️ **Restaurants** — Recommandations, horaires, réservations
-🛍️ **Duty-Free** — Boutiques, promotions, offres exclusives
-🏨 **Hôtels** — Hébergement, réservation, navettes
-🚗 **Transport** — Taxi, bus, RER, parking
-👑 **Salons VIP** — Accès, réservation, horaires
-📍 **Navigation** — Trouver un magasin, une porte, un service
-📋 **Formalités** — Douane, sécurité, passeport
-
-💡 **Conseils rapides :**
-• « Mon vol AF1234 est à quelle porte ? »
-• « Où est le meilleur café du terminal 2E ? »
-• « Comment aller à la gare RER ? »
-• « Je cherche un salon VIP »
+💡 Conseils : « Mon vol AF1234 est à quelle porte ? » | « Meilleur café du T2E ? » | « Comment aller au RER ? »
 
 Comment puis-je vous aider ? 😊`
     )
   }
 
-  // Default response
   return (
     `Merci pour votre message ! 🙏
 
-Je suis AeroAssist, votre assistant intelligent pour les aéroports Paris CDG et Orly. 
+Je suis AeroAssist, votre assistant intelligent pour les aéroports Paris CDG et Orly.
 
-Voici ce que je peux faire pour vous :
-• ✈️ Suivre vos vols en temps réel
-• 🍽️ Trouver les meilleurs restaurants
-• 🛍️ Comparer les boutiques duty-free
-• 🏨 Réserver un hôtel ou une capsule de repos
-• 🚗 Organiser votre transport
-• 👑 Accéder aux salons VIP
+✈️ Suivre vos vols en temps réel | 🍽️ Trouver les meilleurs restaurants
+🛍️ Comparer les boutiques duty-free | 🏨 Réserver un hôtel ou une capsule
+🚗 Organiser votre transport | 👑 Accéder aux salons VIP
 
-N'hésitez pas à utiliser les boutons ci-dessous ou à me poser votre question directement ! Je comprends le français et l'anglais. 🇫🇷🇬🇧`
+N'hésitez pas à me poser votre question directement ou utiliser les boutons ci-dessous ! 🇫🇷🇬🇧`
   )
 }
 
@@ -321,7 +222,6 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       transition={{ duration: 0.3, ease: 'easeOut' }}
       className={`flex items-end gap-2 mb-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
     >
-      {/* Avatar */}
       {!isUser && (
         <Avatar className="size-8 shrink-0 bg-emerald-600">
           <AvatarFallback className="bg-emerald-600 text-white text-xs">
@@ -330,7 +230,6 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         </Avatar>
       )}
 
-      {/* Bubble */}
       <div
         className={`
           relative max-w-[80%] sm:max-w-[70%] px-3.5 py-2.5 shadow-sm
@@ -341,10 +240,8 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           }
         `}
       >
-        {/* Render content with line break support */}
         <div className="text-[0.9rem] leading-relaxed whitespace-pre-line">
           {message.content.split('\n').map((line, i) => {
-            // Render lines that start with special chars as formatted
             if (line.startsWith('**') && line.endsWith('**')) {
               return (
                 <span key={i} className="font-semibold block mt-1.5 first:mt-0">
@@ -352,7 +249,6 @@ function MessageBubble({ message }: { message: ChatMessage }) {
                 </span>
               )
             }
-            // Render lines containing inline bold
             const parts = line.split(/(\*\*[^*]+\*\*)/g)
             return (
               <span key={i} className="block">
@@ -371,7 +267,6 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           })}
         </div>
 
-        {/* Timestamp */}
         <div className={`flex items-center gap-1 mt-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
           <span className="text-[0.65rem] text-gray-500 dark:text-gray-400">
             {formatTime(message.timestamp)}
@@ -384,7 +279,6 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         </div>
       </div>
 
-      {/* User avatar */}
       {isUser && (
         <Avatar className="size-8 shrink-0 bg-blue-600">
           <AvatarFallback className="bg-blue-600 text-white text-xs">
@@ -422,15 +316,7 @@ function QuickActions({ onAction, disabled }: QuickActionsProps) {
             key={action.id}
             onClick={() => onAction(action)}
             disabled={disabled}
-            className={`
-              inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
-              bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300
-              border border-emerald-200 dark:border-emerald-700
-              hover:bg-emerald-100 dark:hover:bg-emerald-900/60
-              active:scale-95 transition-all duration-150
-              disabled:opacity-50 disabled:pointer-events-none
-              whitespace-nowrap
-            `}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap"
           >
             <span>{action.icon}</span>
             <span>{action.label}</span>
@@ -450,13 +336,13 @@ export default function WhatsAppChat() {
     return [
       {
         id: generateId(),
-        content: '✈️ Bienvenue sur AeroAssist ! Je suis votre assistant aéroport intelligent.',
+        content: '✈️ Bienvenue sur AeroAssist ! Je suis votre assistant aéroport intelligent propulsé par Groq.',
         sender: 'assistant',
         timestamp: now,
       },
       {
         id: generateId(),
-        content: 'Comment puis-je vous aider aujourd\'hui ?',
+        content: "Comment puis-je vous aider aujourd'hui ?",
         sender: 'assistant',
         timestamp: secondMsgTime,
       },
@@ -465,11 +351,12 @@ export default function WhatsAppChat() {
   const [isTyping, setIsTyping] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [showQuickActions, setShowQuickActions] = useState(true)
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const [useApi, setUseApi] = useState(true)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Auto-scroll to bottom
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
       const viewport = scrollRef.current.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement
@@ -483,7 +370,6 @@ export default function WhatsAppChat() {
     scrollToBottom()
   }, [messages, isTyping, scrollToBottom])
 
-  // Send message handler
   const handleSend = useCallback(
     (text: string) => {
       if (!text.trim() || isTyping) return
@@ -500,24 +386,76 @@ export default function WhatsAppChat() {
       setShowQuickActions(false)
       setIsTyping(true)
 
-      // Simulate AI response delay
-      const typingDelay = 1000 + Math.random() * 1000
-      setTimeout(() => {
-        const response = generateResponse(text.trim())
-        const assistantMessage: ChatMessage = {
-          id: generateId(),
-          content: response,
-          sender: 'assistant',
-          timestamp: new Date(),
-        }
-        setMessages((prev) => [...prev, assistantMessage])
-        setIsTyping(false)
-      }, typingDelay)
+      if (useApi) {
+        // Call real Groq API via backend
+        fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text.trim(),
+            conversationId: conversationId,
+            language: 'fr',
+          }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.reply) {
+              if (data.conversationId && !conversationId) {
+                setConversationId(data.conversationId)
+              }
+              const assistantMessage: ChatMessage = {
+                id: generateId(),
+                content: data.reply,
+                sender: 'assistant',
+                timestamp: new Date(),
+              }
+              setMessages((prev) => [...prev, assistantMessage])
+            } else {
+              // API error - use fallback
+              setUseApi(false)
+              const fallback = generateFallbackResponse(text.trim())
+              const assistantMessage: ChatMessage = {
+                id: generateId(),
+                content: fallback,
+                sender: 'assistant',
+                timestamp: new Date(),
+              }
+              setMessages((prev) => [...prev, assistantMessage])
+            }
+            setIsTyping(false)
+          })
+          .catch(() => {
+            // Network error - use fallback
+            setUseApi(false)
+            const fallback = generateFallbackResponse(text.trim())
+            const assistantMessage: ChatMessage = {
+              id: generateId(),
+              content: fallback,
+              sender: 'assistant',
+              timestamp: new Date(),
+            }
+            setMessages((prev) => [...prev, assistantMessage])
+            setIsTyping(false)
+          })
+      } else {
+        // Fallback local responses
+        const typingDelay = 1000 + Math.random() * 1000
+        setTimeout(() => {
+          const response = generateFallbackResponse(text.trim())
+          const assistantMessage: ChatMessage = {
+            id: generateId(),
+            content: response,
+            sender: 'assistant',
+            timestamp: new Date(),
+          }
+          setMessages((prev) => [...prev, assistantMessage])
+          setIsTyping(false)
+        }, typingDelay)
+      }
     },
-    [isTyping]
+    [isTyping, conversationId, useApi]
   )
 
-  // Quick action handler
   const handleQuickAction = useCallback(
     (action: QuickAction) => {
       handleSend(action.label)
@@ -525,7 +463,6 @@ export default function WhatsAppChat() {
     [handleSend]
   )
 
-  // Form submit handler
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault()
@@ -534,7 +471,6 @@ export default function WhatsAppChat() {
     [handleSend, inputValue]
   )
 
-  // Key down handler for Enter
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -547,16 +483,8 @@ export default function WhatsAppChat() {
 
   return (
     <div className="w-full max-w-md mx-auto flex flex-col bg-gray-50 dark:bg-gray-950 rounded-2xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-800">
-      {/* ─── Header ──────────────────────────────────────────────────── */}
+      {/* Header */}
       <header className="flex items-center gap-3 px-4 py-3 bg-emerald-600 dark:bg-emerald-800 text-white shadow-md">
-        <button
-          onClick={() => window.history.back()}
-          className="p-1.5 rounded-full hover:bg-white/15 transition-colors"
-          aria-label="Retour"
-        >
-          <ArrowLeft className="size-5" />
-        </button>
-
         <Avatar className="size-10 border-2 border-white/30">
           <AvatarFallback className="bg-white/20 text-white text-sm font-bold">
             <Plane className="size-5" />
@@ -573,11 +501,12 @@ export default function WhatsAppChat() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-300 opacity-75" />
               <span className="relative inline-flex rounded-full size-2 bg-green-300" />
             </span>
-            <span className="text-xs text-emerald-100">En ligne</span>
+            <span className="text-xs text-emerald-100">
+              En ligne · {useApi ? 'Groq IA' : 'Mode hors ligne'}
+            </span>
           </div>
         </div>
 
-        {/* Decorative signal icon */}
         <div className="flex items-center gap-0.5 opacity-60">
           <div className="w-1 h-1.5 rounded-full bg-white" />
           <div className="w-1 h-2.5 rounded-full bg-white" />
@@ -586,9 +515,8 @@ export default function WhatsAppChat() {
         </div>
       </header>
 
-      {/* ─── Chat Wallpaper Pattern (subtle) ────────────────────────── */}
+      {/* Chat Area */}
       <div className="relative flex-1">
-        {/* Subtle pattern overlay */}
         <div
           className="absolute inset-0 opacity-[0.03] dark:opacity-[0.02] pointer-events-none"
           style={{
@@ -596,30 +524,25 @@ export default function WhatsAppChat() {
           }}
         />
 
-        {/* ─── Messages Area ──────────────────────────────────────────── */}
         <div ref={scrollRef} className="h-[500px] overflow-hidden">
           <ScrollArea className="h-full">
             <div className="px-3 py-4 space-y-0">
-              {/* Date divider */}
               <div className="flex items-center justify-center mb-4">
                 <span className="text-[0.7rem] text-gray-500 dark:text-gray-400 bg-white/80 dark:bg-gray-900/80 px-3 py-1 rounded-full shadow-sm">
                   Aujourd&apos;hui
                 </span>
               </div>
 
-              {/* Message list */}
               <AnimatePresence mode="popLayout">
                 {messages.map((message) => (
                   <MessageBubble key={message.id} message={message} />
                 ))}
               </AnimatePresence>
 
-              {/* Typing indicator */}
               <AnimatePresence>
                 {isTyping && <TypingIndicator />}
               </AnimatePresence>
 
-              {/* Quick action buttons (show only after welcome) */}
               {showQuickActions && messages.length === 2 && (
                 <QuickActions onAction={handleQuickAction} disabled={isTyping} />
               )}
@@ -628,7 +551,7 @@ export default function WhatsAppChat() {
         </div>
       </div>
 
-      {/* ─── Input Area ──────────────────────────────────────────────── */}
+      {/* Input Area */}
       <form
         onSubmit={handleSubmit}
         className="flex items-center gap-2 px-3 py-2.5 bg-gray-100 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800"

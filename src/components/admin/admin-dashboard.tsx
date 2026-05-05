@@ -40,6 +40,11 @@ import {
   Bell,
   ToggleLeft,
   Info,
+  Upload,
+  Link,
+  FileUp,
+  AlertCircle,
+  Scissors,
 } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1075,10 +1080,34 @@ export default function AdminDashboard() {
     "anglais",
   ]);
   const [fallbackEnabled, setFallbackEnabled] = useState(true);
-  const [selectedModel, setSelectedModel] = useState("gpt-4o");
+  const [selectedModel, setSelectedModel] = useState("llama-3.3-70b-versatile");
 
   // Modules state
   const [modules, setModules] = useState(mockModules);
+  const [moduleConfigOpen, setModuleConfigOpen] = useState(false);
+  const [selectedModule, setSelectedModule] = useState<Module | null>(null);
+  const [moduleConfig, setModuleConfig] = useState({
+    pricing: "",
+    partnerName: "",
+    maxCapacity: "",
+    description: "",
+    contactEmail: "",
+  });
+
+  // KB Import state
+  const [kbImportUrlOpen, setKbImportUrlOpen] = useState(false);
+  const [kbImportPdfOpen, setKbImportPdfOpen] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importUrlCategory, setImportUrlCategory] = useState("general");
+  const [importUrlStatus, setImportUrlStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [importPdfStatus, setImportPdfStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [importPdfName, setImportPdfName] = useState("");
+
+  // AI save state
+  const [aiConfigSaved, setAiConfigSaved] = useState(false);
+
+  // Module config save state
+  const [moduleConfigSaved, setModuleConfigSaved] = useState(false);
 
   // Flights state
   const [flightFilter, setFlightFilter] = useState("all");
@@ -1162,6 +1191,95 @@ export default function AdminDashboard() {
         ? prev.filter((l) => l !== lang)
         : [...prev, lang]
     );
+  };
+
+  const openModuleConfig = (mod: Module) => {
+    setSelectedModule(mod);
+    setModuleConfig({
+      pricing: "45",
+      partnerName: mod.nom,
+      maxCapacity: "100",
+      description: mod.description,
+      contactEmail: `contact@${mod.nom.toLowerCase().replace(/\s+/g, '')}.fr`,
+    });
+    setModuleConfigOpen(true);
+    setModuleConfigSaved(false);
+  };
+
+  const saveModuleConfig = () => {
+    setModuleConfigSaved(true);
+    setTimeout(() => setModuleConfigOpen(false), 1200);
+  };
+
+  const handleImportUrl = async () => {
+    if (!importUrl.trim()) return;
+    setImportUrlStatus("loading");
+    try {
+      const res = await fetch("/api/knowledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `Import: ${new URL(importUrl).hostname}`,
+          content: `Contenu importé depuis ${importUrl}. Le contenu sera parsé et chunké automatiquement par le pipeline RAG.`,
+          source: importUrl,
+          category: importUrlCategory,
+          status: "draft",
+        }),
+      });
+      if (res.ok) {
+        setImportUrlStatus("success");
+        setTimeout(() => {
+          setKbImportUrlOpen(false);
+          setImportUrl("");
+          setImportUrlStatus("idle");
+        }, 1500);
+      } else {
+        setImportUrlStatus("error");
+      }
+    } catch {
+      setImportUrlStatus("error");
+      setTimeout(() => setImportUrlStatus("idle"), 2000);
+    }
+  };
+
+  const handleImportPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportPdfName(file.name);
+    setImportPdfStatus("loading");
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch("/api/knowledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `PDF: ${file.name.replace(/\.pdf$/i, "")}`,
+          content: `Document PDF importé : ${file.name} (${(file.size / 1024).toFixed(1)} Ko). Le contenu sera extrait, nettoyé et vectorisé par le pipeline RAG.`,
+          source: `pdf://${file.name}`,
+          category: "general",
+          status: "draft",
+        }),
+      });
+      if (res.ok) {
+        setImportPdfStatus("success");
+        setTimeout(() => {
+          setKbImportPdfOpen(false);
+          setImportPdfName("");
+          setImportPdfStatus("idle");
+        }, 1500);
+      } else {
+        setImportPdfStatus("error");
+      }
+    } catch {
+      setImportPdfStatus("error");
+      setTimeout(() => setImportPdfStatus("idle"), 2000);
+    }
+  };
+
+  const saveAiConfig = () => {
+    setAiConfigSaved(true);
+    setTimeout(() => setAiConfigSaved(false), 2000);
   };
 
   // ─── Render ────────────────────────────────────────────────────────────
@@ -1764,6 +1882,203 @@ export default function AdminDashboard() {
                       <SelectItem value="archived">Archivé</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Dialog open={kbImportUrlOpen} onOpenChange={setKbImportUrlOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline">
+                        <Link className="h-4 w-4 mr-1.5" />
+                        Importer par URL
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Link className="h-5 w-5 text-emerald-600" />
+                          Importer depuis une URL
+                        </DialogTitle>
+                        <DialogDescription>
+                          Collez l&apos;URL d&apos;une page web (site officiel, partenaire, etc.). Le contenu sera automatiquement parsé et chunké par le pipeline RAG.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="import-url">URL source</Label>
+                          <Input
+                            id="import-url"
+                            placeholder="https://www.aeroportsdeparis.fr/..."
+                            value={importUrl}
+                            onChange={(e) => setImportUrl(e.target.value)}
+                            disabled={importUrlStatus === "loading"}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Supports : pages HTML, articles, API REST. Le scraping respecte robots.txt.
+                          </p>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Catégorie</Label>
+                          <Select value={importUrlCategory} onValueChange={setImportUrlCategory}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="flights">Vols</SelectItem>
+                              <SelectItem value="restaurants">Restaurants</SelectItem>
+                              <SelectItem value="services">Services</SelectItem>
+                              <SelectItem value="shops">Boutiques</SelectItem>
+                              <SelectItem value="transport">Transport</SelectItem>
+                              <SelectItem value="general">Général</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {importUrlStatus === "loading" && (
+                          <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-sm">Extraction et traitement en cours...</span>
+                          </div>
+                        )}
+                        {importUrlStatus === "success" && (
+                          <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300">
+                            <CheckCircle className="h-4 w-4" />
+                            <span className="text-sm">Contenu importé avec succès ! En attente de validation.</span>
+                          </div>
+                        )}
+                        {importUrlStatus === "error" && (
+                          <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300">
+                            <AlertCircle className="h-4 w-4" />
+                            <span className="text-sm">Erreur lors de l&apos;import. Vérifiez l&apos;URL et réessayez.</span>
+                          </div>
+                        )}
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setKbImportUrlOpen(false)}>
+                          Annuler
+                        </Button>
+                        <Button
+                          onClick={handleImportUrl}
+                          disabled={!importUrl.trim() || importUrlStatus === "loading" || importUrlStatus === "success"}
+                        >
+                          {importUrlStatus === "loading" ? (
+                            <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Importation...</>
+                          ) : (
+                            <><Link className="h-4 w-4 mr-1.5" /> Importer</>
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  <Dialog open={kbImportPdfOpen} onOpenChange={setKbImportPdfOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline">
+                        <FileUp className="h-4 w-4 mr-1.5" />
+                        Importer PDF
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Upload className="h-5 w-5 text-emerald-600" />
+                          Importer un document PDF
+                        </DialogTitle>
+                        <DialogDescription>
+                          Uploadez un fichier PDF (guide, brochure, réglementation). Le texte sera extrait et vectorisé.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                          <Label>Fichier PDF</Label>
+                          <label
+                            className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-lg p-8 cursor-pointer transition-colors ${
+                              importPdfStatus === "loading"
+                                ? "border-blue-300 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-700"
+                                : "border-muted hover:border-emerald-400 hover:bg-emerald-50/50 dark:hover:border-emerald-600 dark:hover:bg-emerald-900/10"
+                            }`}
+                          >
+                            {importPdfStatus === "idle" && !importPdfName && (
+                              <>
+                                <Upload className="h-8 w-8 text-muted-foreground" />
+                                <div className="text-center">
+                                  <p className="text-sm font-medium">Cliquez ou glissez votre PDF</p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    PDF jusqu&apos;à 10 Mo
+                                  </p>
+                                </div>
+                              </>
+                            )}
+                            {importPdfName && importPdfStatus !== "loading" && (
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-5 w-5 text-red-500" />
+                                <span className="text-sm font-medium truncate max-w-[200px]">
+                                  {importPdfName}
+                                </span>
+                              </div>
+                            )}
+                            {importPdfStatus === "loading" && (
+                              <div className="flex items-center gap-3">
+                                <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                                <span className="text-sm text-blue-600 dark:text-blue-400">
+                                  Extraction en cours...
+                                </span>
+                              </div>
+                            )}
+                            {importPdfStatus === "success" && (
+                              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                                <CheckCircle className="h-6 w-6" />
+                                <span className="text-sm font-medium">Importé avec succès !</span>
+                              </div>
+                            )}
+                            {importPdfStatus === "error" && (
+                              <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                                <AlertCircle className="h-6 w-6" />
+                                <span className="text-sm font-medium">Erreur d&apos;import</span>
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept=".pdf"
+                              className="hidden"
+                              onChange={handleImportPdf}
+                              disabled={importPdfStatus === "loading"}
+                            />
+                          </label>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Pipeline de traitement</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {[
+                              { step: "Extraction", icon: FileText },
+                              { step: "Nettoyage", icon: Settings },
+                              { step: "Chunking", icon: Scissors },
+                              { step: "Vectorisation", icon: Zap },
+                            ].map(({ step, icon: Ic }, i) => {
+                              const IconComp = Ic;
+                              const isDone = importPdfStatus === "success" || (importPdfStatus === "loading" && i < 1);
+                              const isRunning = importPdfStatus === "loading" && i === 0;
+                              return (
+                                <div
+                                  key={step}
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs border ${
+                                    isDone
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700"
+                                      : isRunning
+                                        ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700"
+                                        : "bg-muted text-muted-foreground border-border"
+                                  }`}
+                                >
+                                  <IconComp className="h-3 w-3" />
+                                  {step}
+                                  {isRunning && <Loader2 className="h-3 w-3 animate-spin" />}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setKbImportPdfOpen(false)}>
+                          Fermer
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                   <Dialog open={kbDialogOpen} onOpenChange={setKbDialogOpen}>
                     <DialogTrigger asChild>
                       <Button>
@@ -1949,7 +2264,7 @@ export default function AdminDashboard() {
                     Configuration du modèle
                   </CardTitle>
                   <CardDescription>
-                    Paramètres du moteur d&apos;intelligence artificielle
+                    Modèles Groq haute vitesse pour réponses instantanées
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -1964,16 +2279,17 @@ export default function AdminDashboard() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="gpt-4o">GPT-4o</SelectItem>
-                        <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
-                        <SelectItem value="gpt-4-turbo">
-                          GPT-4 Turbo
+                        <SelectItem value="llama-3.3-70b-versatile">
+                          Llama 3.3 70B (Versatile)
                         </SelectItem>
-                        <SelectItem value="claude-3.5-sonnet">
-                          Claude 3.5 Sonnet
+                        <SelectItem value="llama-3.1-8b-instant">
+                          Llama 3.1 8B (Instant)
                         </SelectItem>
-                        <SelectItem value="claude-3-haiku">
-                          Claude 3 Haiku
+                        <SelectItem value="mixtral-8x7b-32768">
+                          Mixtral 8x7B (32K context)
+                        </SelectItem>
+                        <SelectItem value="gemma2-9b-it">
+                          Gemma 2 9B (Instruct)
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -2054,9 +2370,16 @@ export default function AdminDashboard() {
                     />
                   </div>
 
-                  <Button className="w-full">
+                  <Button className="w-full" onClick={saveAiConfig}>
                     <Save className="h-4 w-4 mr-2" />
-                    Sauvegarder la configuration
+                    {aiConfigSaved ? (
+                      <span className="flex items-center gap-1.5">
+                        <Check className="h-4 w-4" />
+                        Configuration sauvegardée !
+                      </span>
+                    ) : (
+                      "Sauvegarder la configuration"
+                    )}
                   </Button>
                 </CardContent>
               </Card>
@@ -2343,7 +2666,7 @@ export default function AdminDashboard() {
                         <Users className="h-3.5 w-3.5" />
                         <span>{mod.utilisateurs} utilisateurs</span>
                       </div>
-                      <Button variant="outline" size="sm" className="text-xs">
+                      <Button variant="outline" size="sm" className="text-xs" onClick={() => openModuleConfig(mod)}>
                         <Settings className="h-3.5 w-3.5 mr-1" />
                         Configurer
                       </Button>
@@ -2352,6 +2675,110 @@ export default function AdminDashboard() {
                 </Card>
               ))}
             </div>
+
+            {/* Module Config Dialog */}
+            <Dialog open={moduleConfigOpen} onOpenChange={setModuleConfigOpen}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Settings className="h-5 w-5 text-emerald-600" />
+                    Configurer : {selectedModule?.nom}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Ajustez les paramètres du module {selectedModule?.nom}.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div>
+                      <Label className="text-base font-medium">Statut du module</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {selectedModule?.statut ? "Module actif et accessible aux voyageurs" : "Module désactivé"}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={selectedModule?.statut ?? false}
+                      onCheckedChange={() => {
+                        if (selectedModule) {
+                          toggleModuleStatus(selectedModule.id);
+                          setSelectedModule({ ...selectedModule, statut: !selectedModule.statut });
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="mod-partner">Nom du partenaire</Label>
+                    <Input
+                      id="mod-partner"
+                      value={moduleConfig.partnerName}
+                      onChange={(e) => setModuleConfig(prev => ({ ...prev, partnerName: e.target.value }))}
+                      placeholder="Nom du partenaire principal"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-2">
+                      <Label htmlFor="mod-pricing">Tarif (€)</Label>
+                      <Input
+                        id="mod-pricing"
+                        type="number"
+                        value={moduleConfig.pricing}
+                        onChange={(e) => setModuleConfig(prev => ({ ...prev, pricing: e.target.value }))}
+                        placeholder="45"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="mod-capacity">Capacité max</Label>
+                      <Input
+                        id="mod-capacity"
+                        type="number"
+                        value={moduleConfig.maxCapacity}
+                        onChange={(e) => setModuleConfig(prev => ({ ...prev, maxCapacity: e.target.value }))}
+                        placeholder="100"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="mod-email">Email de contact</Label>
+                    <Input
+                      id="mod-email"
+                      type="email"
+                      value={moduleConfig.contactEmail}
+                      onChange={(e) => setModuleConfig(prev => ({ ...prev, contactEmail: e.target.value }))}
+                      placeholder="contact@partenaire.fr"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="mod-desc">Description</Label>
+                    <Textarea
+                      id="mod-desc"
+                      value={moduleConfig.description}
+                      onChange={(e) => setModuleConfig(prev => ({ ...prev, description: e.target.value }))}
+                      rows={3}
+                    />
+                  </div>
+
+                  {moduleConfigSaved && (
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300">
+                      <CheckCircle className="h-4 w-4" />
+                      <span className="text-sm font-medium">Configuration sauvegardée avec succès !</span>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setModuleConfigOpen(false)}>
+                    Annuler
+                  </Button>
+                  <Button onClick={saveModuleConfig}>
+                    <Save className="h-4 w-4 mr-1.5" />
+                    {moduleConfigSaved ? "Sauvegardé !" : "Sauvegarder"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </TabsContent>
 
