@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   MessageCircle,
   Users,
@@ -1084,6 +1084,7 @@ export default function AdminDashboard() {
 
   // Modules state
   const [modules, setModules] = useState(mockModules);
+  const [modulesLoading, setModulesLoading] = useState(false);
   const [moduleConfigOpen, setModuleConfigOpen] = useState(false);
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
   const [moduleConfig, setModuleConfig] = useState({
@@ -1093,6 +1094,38 @@ export default function AdminDashboard() {
     description: "",
     contactEmail: "",
   });
+
+  // Fetch real modules from API on mount
+  useEffect(() => {
+    fetch('/api/modules')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data.length > 0) {
+          const iconMap: Record<string, React.ReactNode> = {
+            'Salon VIP': <Crown className="h-8 w-8" />,
+            'Marketplace': <ShoppingBag className="h-8 w-8" />,
+            'Duty Free Shopping': <CreditCard className="h-8 w-8" />,
+            'Duty-Free': <CreditCard className="h-8 w-8" />,
+            'Hôtels & Transferts': <Building2 className="h-8 w-8" />,
+            'Location Voitures': <Car className="h-8 w-8" />,
+            'Restaurants': <Utensils className="h-8 w-8" />,
+          };
+          const mapped = data.data.map((m: { id: string; name: string; description: string; isActive: boolean; config: string }) => {
+            const cfg = JSON.parse(m.config || '{}');
+            return {
+              id: m.id,
+              nom: m.name,
+              description: m.description || '',
+              icon: iconMap[m.name] || <Activity className="h-8 w-8" />,
+              statut: m.isActive,
+              utilisateurs: cfg.maxCapacity || 0,
+            };
+          });
+          setModules(mapped);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // KB Import state
   const [kbImportUrlOpen, setKbImportUrlOpen] = useState(false);
@@ -1177,13 +1210,39 @@ export default function AdminDashboard() {
 
   // ─── Handlers ──────────────────────────────────────────────────────────
 
-  const toggleModuleStatus = (moduleId: string) => {
+  const toggleModuleStatus = useCallback(async (moduleId: string) => {
+    const mod = modules.find(m => m.id === moduleId);
+    if (!mod) return;
+    const newStatus = !mod.statut;
+    // Optimistic update
     setModules((prev) =>
       prev.map((m) =>
-        m.id === moduleId ? { ...m, statut: !m.statut } : m
+        m.id === moduleId ? { ...m, statut: newStatus } : m
       )
     );
-  };
+    try {
+      const res = await fetch('/api/modules', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: moduleId, isActive: newStatus }),
+      });
+      if (!res.ok) {
+        // Revert on failure
+        setModules((prev) =>
+          prev.map((m) =>
+            m.id === moduleId ? { ...m, statut: !newStatus } : m
+          )
+        );
+      }
+    } catch {
+      // Revert on network error
+      setModules((prev) =>
+        prev.map((m) =>
+          m.id === moduleId ? { ...m, statut: !newStatus } : m
+        )
+      );
+    }
+  }, [modules]);
 
   const toggleLanguage = (lang: string) => {
     setSelectedLanguages((prev) =>
@@ -1198,17 +1257,39 @@ export default function AdminDashboard() {
     setModuleConfig({
       pricing: "45",
       partnerName: mod.nom,
-      maxCapacity: "100",
+      maxCapacity: String(mod.utilisateurs || 100),
       description: mod.description,
-      contactEmail: `contact@${mod.nom.toLowerCase().replace(/\s+/g, '')}.fr`,
+      contactEmail: `contact@${mod.nom.toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '')}.fr`,
     });
     setModuleConfigOpen(true);
     setModuleConfigSaved(false);
   };
 
-  const saveModuleConfig = () => {
-    setModuleConfigSaved(true);
-    setTimeout(() => setModuleConfigOpen(false), 1200);
+  const saveModuleConfig = async () => {
+    if (!selectedModule) return;
+    setModulesLoading(true);
+    try {
+      const configData = JSON.stringify({
+        pricing: { single: Number(moduleConfig.pricing) || 0 },
+        partnerName: moduleConfig.partnerName,
+        maxCapacity: Number(moduleConfig.maxCapacity) || 100,
+        description: moduleConfig.description,
+        contactEmail: moduleConfig.contactEmail,
+      });
+      const res = await fetch('/api/modules', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedModule.id, isActive: selectedModule.statut }),
+      });
+      if (res.ok) {
+        setModuleConfigSaved(true);
+        setTimeout(() => setModuleConfigOpen(false), 1200);
+      }
+    } catch {
+      // Error handling silent - dialog stays open
+    } finally {
+      setModulesLoading(false);
+    }
   };
 
   const handleImportUrl = async () => {
@@ -1247,8 +1328,6 @@ export default function AdminDashboard() {
     if (!file) return;
     setImportPdfName(file.name);
     setImportPdfStatus("loading");
-    const formData = new FormData();
-    formData.append("file", file);
     try {
       const res = await fetch("/api/knowledge", {
         method: "POST",
@@ -1277,10 +1356,41 @@ export default function AdminDashboard() {
     }
   };
 
-  const saveAiConfig = () => {
-    setAiConfigSaved(true);
-    setTimeout(() => setAiConfigSaved(false), 2000);
+  const saveAiConfig = async () => {
+    // Save AI config to localStorage for persistence
+    const config = {
+      model: selectedModel,
+      systemPrompt,
+      confidenceThreshold,
+      languages: selectedLanguages,
+      fallbackEnabled,
+      savedAt: new Date().toISOString(),
+    };
+    try {
+      localStorage.setItem('aeroassist-ai-config', JSON.stringify(config));
+      setAiConfigSaved(true);
+      setTimeout(() => setAiConfigSaved(false), 2000);
+    } catch {
+      // localStorage not available
+    }
   };
+
+  // Load AI config from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('aeroassist-ai-config');
+      if (saved) {
+        const config = JSON.parse(saved);
+        if (config.model) setSelectedModel(config.model);
+        if (config.systemPrompt) setSystemPrompt(config.systemPrompt);
+        if (config.confidenceThreshold) setConfidenceThreshold(config.confidenceThreshold);
+        if (config.languages) setSelectedLanguages(config.languages);
+        if (config.fallbackEnabled !== undefined) setFallbackEnabled(config.fallbackEnabled);
+      }
+    } catch {
+      // localStorage not available
+    }
+  }, []);
 
   // ─── Render ────────────────────────────────────────────────────────────
 

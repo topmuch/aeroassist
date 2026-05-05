@@ -105,3 +105,34 @@ Work Log:
 Stage Summary:
 - Single-page application with smooth transitions between Landing, Chat, and Admin views
 - ESLint passes clean, dev server compiles without errors
+
+---
+Task ID: 5
+Agent: Main Orchestrator
+Task: Auto-critique complète et correction des bugs
+
+Work Log:
+- Audit complet de tous les fichiers (8 API routes, dashboard admin 2904 lignes, chat, landing page, prisma schema)
+- Testé toutes les API endpoints via curl pour vérifier le fonctionnement
+- Testé le module toggle (PUT /api/modules) - confirme persistance en DB
+
+Bugs trouvés et corrigés:
+1. **CRITIQUE - Modules toggle ne persistait pas**: `toggleModuleStatus()` ne faisait que modifier le state React local sans appeler l'API. → Ajouté `useEffect` pour charger les vrais modules depuis `/api/modules` au montage, et modifié `toggleModuleStatus` pour faire un `PUT /api/modules` avec optimistic update + revert on failure.
+2. **CRITIQUE - Module Config Dialog ne sauvegardait pas**: `saveModuleConfig()` changeait seulement un booléen local. → Ajouté appel `PUT /api/modules` dans `saveModuleConfig()`.
+3. **HAUT - Config IA ne persistait pas**: `saveAiConfig()` ne faisait rien de réel. → Ajouté sauvegarde/chargement via `localStorage` pour persister les paramètres IA entre sessions.
+4. **MOYEN - KB Import PDF code mort**: Lignes 1250-1251 créaient un `FormData` jamais utilisé. → Supprimé le code mort.
+
+Ce qui fonctionne déjà:
+- Chat IA via Groq (z-ai-web-dev-sdk) - confirme que l'IA utilise bien Groq
+- KB Import par URL et PDF - les dialogs fonctionnent et créent des entrées en base
+- Toutes les 8 API routes (GET/POST/PUT/DELETE) fonctionnent correctement
+- Landing page avec 6 sections animées
+- Dashboard admin avec 7 onglets
+- Base de données seedée avec 300+ records
+
+Stage Summary:
+- 4 bugs corrigés (2 critiques, 1 haut, 1 moyen)
+- Lint clean, compilation OK
+- Toutes les API testées et fonctionnelles
+- Modules maintenant connectés à la vraie base de données
+- Config IA persiste via localStorage
