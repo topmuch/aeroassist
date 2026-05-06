@@ -1,9 +1,11 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+  external_labels:
+    monitor: 'aeroassist'
 
 rule_files:
-  - /etc/prometheus/alert_rules.yml
+  - 'alert_rules.yml'
 
 alerting:
   alertmanagers:
@@ -12,23 +14,16 @@ alerting:
             - alertmanager:9093
 
 scrape_configs:
-  # AeroAssist Next.js application metrics
-  - job_name: 'aeroassist_app'
-    metrics_path: '/api/metrics'
-    scrape_interval: 10s
-    static_configs:
-      - targets: ['host.docker.internal:3000']
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: instance
-        replacement: 'aeroassist-backend'
-
-  # Node Exporter - host system metrics
-  - job_name: 'node'
-    static_configs:
-      - targets: ['node-exporter:9100']
-
-  # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: 'aeroassist'
+    metrics_path: '/api/health'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['app:3000']

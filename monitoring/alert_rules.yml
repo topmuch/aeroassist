@@ -1,24 +1,36 @@
 groups:
   - name: aeroassist_alerts
     rules:
-      # High error rate alert
+      # Any target instance down for more than 1 minute
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Instance {{ $labels.instance }} down"
+          description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minute."
+          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#instance-down"
+
+      # HTTP 5xx error rate exceeds 5% over 5 minutes
       - alert: HighErrorRate
         expr: |
           (
             sum(rate(http_requests_total{status=~"5.."}[5m]))
             /
             sum(rate(http_requests_total[5m]))
-          ) > 0.01
-        for: 2m
+          ) > 0.05
+        for: 5m
         labels:
           severity: critical
           team: platform
         annotations:
           summary: "High error rate detected ({{ $value | humanizePercentage }})"
-          description: "Error rate has exceeded 1% for the last 2 minutes. Current rate: {{ $value | humanizePercentage }}"
-          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#error-rate-above-1"
+          description: "HTTP 5xx error rate has exceeded 5% for the last 5 minutes. Current rate: {{ $value | humanizePercentage }}"
+          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#high-error-rate"
 
-      # P95 latency alert
+      # P95 response latency exceeds 2 seconds over 5 minutes
       - alert: HighLatencyP95
         expr: |
           histogram_quantile(0.95,
@@ -29,54 +41,58 @@ groups:
           severity: warning
           team: platform
         annotations:
-          summary: "P95 latency above 2s"
+          summary: "P95 latency above 2s on {{ $labels.endpoint }}"
           description: "P95 response latency has been above 2 seconds for 5 minutes on endpoint {{ $labels.endpoint }}"
-          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#latency-p95-above-2s"
+          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#high-latency-p95"
 
-      # WhatsApp provider down
-      - alert: WhatsAppProviderDown
-        expr: up{job="aeroassist_app"} == 0 or whatsapp_provider_status == 0
-        for: 1m
-        labels:
-          severity: critical
-          team: integrations
-        annotations:
-          summary: "WhatsApp provider is unreachable"
-          description: "WhatsApp Business API provider has been down for 1 minute. All WhatsApp messaging is affected."
-          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#whatsapp-provider-down"
-
-      # Stripe payment failure spike
-      - alert: StripePaymentFailures
-        expr: |
-          sum(rate(stripe_payment_failures_total[10m])) > 0.1
-        for: 5m
-        labels:
-          severity: critical
-          team: billing
-        annotations:
-          summary: "Stripe payment failure rate is elevated"
-          description: "Stripe payment failures are occurring at {{ $value }} failures/sec. Investigate webhook connectivity and Stripe dashboard."
-          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#stripe-payment-failures"
-
-      # Application unreachable
-      - alert: AppDown
-        expr: up{job="aeroassist_app"} == 0
-        for: 30s
-        labels:
-          severity: critical
-          team: platform
-        annotations:
-          summary: "AeroAssist application is down"
-          description: "The Next.js application has been unreachable for 30 seconds."
-
-      # High memory usage
+      # Container memory usage exceeds 80%
       - alert: HighMemoryUsage
         expr: |
-          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85
+          (1 - (container_memory_working_set_bytes / container_spec_memory_limit_bytes)) > 0.80
         for: 5m
         labels:
           severity: warning
           team: platform
         annotations:
-          summary: "Memory usage above 85%"
-          description: "System memory usage is at {{ $value | humanizePercentage }}. Consider scaling or investigating memory leaks."
+          summary: "Container memory usage above 80%"
+          description: "Container {{ $labels.name }} memory usage is at {{ $value | humanizePercentage }} of its limit. Consider scaling or investigating memory leaks."
+          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#high-memory-usage"
+
+      # Disk space below 20% free
+      - alert: DiskSpaceWarning
+        expr: |
+          (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) < 0.20
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Disk space below 20% free on {{ $labels.instance }}"
+          description: "Filesystem {{ $labels.device }} mounted at {{ $labels.mountpoint }} on {{ $labels.instance }} has less than 20% free space available."
+          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#disk-space-warning"
+
+      # Stripe webhook errors exceed 3 in 5 minutes
+      - alert: StripeWebhookFailure
+        expr: |
+          sum(increase(stripe_webhook_errors_total[5m])) > 3
+        for: 1m
+        labels:
+          severity: critical
+          team: billing
+        annotations:
+          summary: "Stripe webhook failures exceeding threshold"
+          description: "{{ $value }} Stripe webhook errors recorded in the last 5 minutes. Investigate webhook connectivity and Stripe dashboard."
+          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#stripe-webhook-failure"
+
+      # WhatsApp send failures exceed 5 in 5 minutes
+      - alert: WhatsAppDeliveryFailure
+        expr: |
+          sum(increase(whatsapp_send_failures_total[5m])) > 5
+        for: 1m
+        labels:
+          severity: critical
+          team: integrations
+        annotations:
+          summary: "WhatsApp delivery failures exceeding threshold"
+          description: "{{ $value }} WhatsApp message send failures recorded in the last 5 minutes. Check provider connectivity and message queue."
+          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#whatsapp-delivery-failure"

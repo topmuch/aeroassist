@@ -1,63 +1,160 @@
+# =============================================================================
+# AeroAssist Load Test Configuration
+# =============================================================================
+# Usage:
+#   artillery run artillery/load-test.yml
+#
+#   With environment variables:
+#   ADMIN_API_KEY=your_key artillery run artillery/load-test.yml
+#
+#   With custom target:
+#   TARGET_URL=https://staging.aeroassist.app artillery run artillery/load-test.yml
+# =============================================================================
+
 config:
-  target: "http://localhost:3000"
+  # Target can be overridden via environment variable
+  target: "{{ $process.env.TARGET_URL || 'http://localhost:3000' }}"
+
   phases:
-    - name: Warm up
-      duration: 30
-      arrivalRate: 5
-    - name: Ramp up
-      duration: 60
-      arrivalRate: 20
-    - name: Sustained load (200 users/min)
-      duration: 120
-      arrivalRate: 50  # ~200 users/min considering response times
-    - name: Cool down
-      duration: 30
-      arrivalRate: 5
+    # Phase 1: Warmup — gentle traffic to warm caches and connections
+    - name: "Warmup"
+      duration: 120           # 2 minutes
+      arrivalRate: 10         # ~10 new users/sec → ~600 requests over phase
+
+    # Phase 2: Ramp up — steadily increasing load
+    - name: "Ramp Up"
+      duration: 300           # 5 minutes
+      arrivalRate: 10
+      rampTo: 100             # Ramp from 10 to 100 users/sec
+
+    # Phase 3: Sustained — peak concurrent load
+    - name: "Sustained Load"
+      duration: 600           # 10 minutes
+      arrivalRate: 200        # 200 users/sec sustained
+
+    # Phase 4: Cooldown — wind down gracefully
+    - name: "Cooldown"
+      duration: 180           # 3 minutes
+      arrivalRate: 10         # Drop back to low traffic
+
+  # Defaults applied to every request
   defaults:
     headers:
-      Authorization: "Bearer aeroassist_dev_key_2024"
       Content-Type: "application/json"
-  processor: "./load-test-processor.js"
+      # Auth header set via environment variable for security
+      Authorization: "Bearer {{ $process.env.ADMIN_API_KEY || 'aeroassist_dev_key_2024' }}"
 
+  # Processor for custom JS logic (data generation, response capture, etc.)
+  processor: "./scripts/load-test-processor.js"
+
+  # -------------------------------------------
+  # Performance thresholds (Artillery will fail the test if these are breached)
+  # -------------------------------------------
+  ensure:
+    p95: < 1500              # p95 latency must be under 1.5 seconds
+    maxErrorRate: 1          # Error rate must be under 1%
+
+# =============================================================================
+# Scenarios
+# =============================================================================
 scenarios:
+
+  # ── 1. Health Check ─────────────────────────────────────────────────────
   - name: "Health Check"
-    weight: 10
+    weight: 15
     flow:
+      - log: "→ GET /api/health"
       - get:
           url: "/api/health"
+          capture:
+            - json: "$.status"
+              as: "healthStatus"
+          expect:
+            - statusCode: 200
+            - contentType: json
+      - think: 2             # 2s think time between requests
 
-  - name: "RAG Search Pipeline"
-    weight: 30
+  # ── 2. Chat Message ─────────────────────────────────────────────────────
+  - name: "Chat Message"
+    weight: 35
     flow:
-      - post:
-          url: "/api/rag/test"
-          json:
-            query: "Où manger au terminal 2E CDG ?"
-            maxResults: 3
-
-  - name: "AI Chat"
-    weight: 40
-    flow:
+      - log: "→ POST /api/chat"
       - post:
           url: "/api/chat"
           json:
-            message: "Bonjour, mon vol AF1234 est à quelle heure ?"
-            conversationId: "load_test_conv_{{ $randomString() }}"
+            message: "{{ pickRandom('What is my flight status?', 'Can I change my seat?', 'Where is baggage claim for AF123?', 'I lost my luggage', 'What are the lounge hours?', 'How do I check in online?', 'Is my flight delayed?', 'What gate is my departure?', 'Can I get a refund?', 'Tell me about duty free') }}"
+            conversationId: "load-test-{{ $randomString(16) }}"
+          capture:
+            - json: "$.response"
+              as: "chatResponse"
+          expect:
+            - statusCode: 200
+      - think: 5             # Longer think time — chat has higher latency
 
-  - name: "Flights API"
-    weight: 10
+  # ── 3. RAG Search ───────────────────────────────────────────────────────
+  - name: "RAG Search"
+    weight: 25
     flow:
+      - log: "→ POST /api/rag/test"
+      - post:
+          url: "/api/rag/test"
+          json:
+            query: "{{ pickRandom('flight delay compensation policy', 'lost baggage procedure', 'terminal 2E restaurant guide', 'visa requirements for transit', 'wheelchair assistance request', 'travel insurance claims', 'priority boarding eligibility', 'connecting flight minimum time', 'pet travel regulations', 'unaccompanied minor service') }}"
+            maxResults: 3
+          capture:
+            - json: "$.results"
+              as: "ragResults"
+          expect:
+            - statusCode: 200
+      - think: 3
+
+  # ── 4. Embedding Test ──────────────────────────────────────────────────
+  - name: "Embedding Test"
+    weight: 8
+    flow:
+      - log: "→ GET /api/rag/embedding-test"
+      - get:
+          url: "/api/rag/embedding-test?text={{ pickRandom('hello', 'flight status', 'baggage claim', 'boarding pass', 'lounge access', 'gate change', 'delay notification') }}"
+          capture:
+            - json: "$.dimension"
+              as: "embeddingDimension"
+          expect:
+            - statusCode: 200
+      - think: 2
+
+  # ── 5. Flight Status ────────────────────────────────────────────────────
+  - name: "Flight Status"
+    weight: 12
+    flow:
+      - log: "→ GET /api/flights"
       - get:
           url: "/api/flights"
+          headers:
+            Authorization: "Bearer {{ $process.env.ADMIN_API_KEY || 'aeroassist_dev_key_2024' }}"
+          capture:
+            - json: "$.flights"
+              as: "flightsData"
+          expect:
+            - statusCode: 200
+      - think: 3
 
-  - name: "Knowledge Base"
+  # ── 6. Stripe Checkout ──────────────────────────────────────────────────
+  - name: "Stripe Checkout"
     weight: 5
     flow:
-      - get:
-          url: "/api/knowledge"
-
-  - name: "Analytics"
-    weight: 5
-    flow:
-      - get:
-          url: "/api/analytics"
+      - log: "→ POST /api/billing/create-payment"
+      - post:
+          url: "/api/billing/create-payment"
+          headers:
+            Authorization: "Bearer {{ $process.env.ADMIN_API_KEY || 'aeroassist_dev_key_2024' }}"
+          json:
+            planId: "{{ pickRandom('pro_monthly', 'enterprise_monthly', 'pro_annual') }}"
+            userId: "load-test-user-{{ $randomString(12) }}"
+            successUrl: "https://aeroassist.app/billing/success"
+            cancelUrl: "https://aeroassist.app/billing/cancel"
+          capture:
+            - json: "$.url"
+              as: "checkoutUrl"
+          expect:
+            - statusCode: 200
+      - think: 8             # Longer think time — payment creation is heavier

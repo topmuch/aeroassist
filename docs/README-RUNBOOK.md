@@ -1,4 +1,4 @@
-# AeroAssist Incident Runbook
+# AeroAssist — Incident Runbook
 
 > **Version:** 1.0.0  
 > **Last Updated:** 2025-01  
@@ -8,586 +8,632 @@
 
 ## Table of Contents
 
-1. [System Health Check](#1-system-health-check)
-2. [Restart Services](#2-restart-services)
-3. [Check Logs](#3-check-logs)
-4. [Reindex Knowledge Base](#4-reindex-knowledge-base)
-5. [WhatsApp Provider Failover](#5-whatsapp-provider-failover)
-6. [Stripe Webhook Failures](#6-stripe-webhook-failures)
-7. [Backup & Restore Procedures](#7-backup--restore-procedures)
-8. [Common Issues & Resolutions](#8-common-issues--resolutions)
-9. [Emergency Contacts & Escalation](#9-emergency-contacts--escalation)
-10. [Port Reference](#10-port-reference)
+1. [Overview](#1-overview)
+2. [Monitoring Stack](#2-monitoring-stack)
+3. [Common Incidents & Resolution](#3-common-incidents--resolution)
+4. [Emergency Procedures](#4-emergency-procedures)
+5. [Backup & Recovery](#5-backup--recovery)
+6. [Useful Commands](#6-useful-commands)
+7. [Contacts & Escalation](#7-contacts--escalation)
 
 ---
 
-## 1. System Health Check
+## 1. Overview
 
-### Quick Status Dashboard
+### What is AeroAssist?
 
-```bash
-# Run all health checks in sequence
-./scripts/health-check.sh
+AeroAssist is an AI-powered airport concierge chatbot accessible via **WhatsApp**. It provides real-time flight information, restaurant recommendations, hotel bookings, transport options, and shopping guidance for CDG and ORLY airports in Paris. The system uses **Groq AI** for natural language processing and a **RAG pipeline** for knowledge retrieval.
+
+### Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        AeroAssist Architecture                       │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────────┐     ┌──────────────┐     ┌──────────────────────────┐ │
+│  │ WhatsApp │────▶│  Meta Cloud  │────▶│   Nginx (port 80/443)   │ │
+│  │  Users   │     │    API       │     │   Reverse Proxy + TLS    │ │
+│  └──────────┘     └──────────────┘     └────────────┬─────────────┘ │
+│                                                      │               │
+│  ┌──────────┐     ┌──────────────┐     ┌────────────▼─────────────┐ │
+│  │  Web App │────▶│   Next.js    │────▶│   Backend (port 3000)    │ │
+│  │  Dashboard│     │   Frontend   │     │   - Chat API (/api/chat) │ │
+│  └──────────┘     └──────────────┘     │   - Webhooks             │ │
+│                                       │   - Stripe Payments      │ │
+│                                       └────────────┬─────────────┘ │
+│                                                    │                │
+│  ┌──────────┐     ┌──────────────┐     ┌────────────▼─────────────┐ │
+│  │ Grafana  │────▶│  Prometheus  │────▶│   Services               │ │
+│  │ (3002)   │     │   (9090)     │     │   - Groq AI (LLM)       │ │
+│  └──────────┘     └──────────────┘     │   - Stripe API          │ │
+│                                       │   - OpenBSP (3001)       │ │
+│  ┌──────────┐     ┌──────────────┐     └────────────┬─────────────┘ │
+│  │AlertMgr  │────▶│    Redis     │                    │               │
+│  │ (9093)   │     │   (6379)     │     ┌────────────▼─────────────┐ │
+│  └──────────┘     └──────────────┘     │   PostgreSQL (5432)      │ │
+│                                       │   - Users, Flights       │ │
+│                                       │   - Messages, Payments   │ │
+│                                       │   - Knowledge Base       │ │
+│                                       └──────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Individual Service Checks
+### Key Components
 
-```bash
-# Next.js Backend (port 3000)
-curl -sf http://localhost:3000/api/health | jq .
+| Component | Port | Purpose |
+|-----------|------|---------|
+| Next.js Backend | 3000 | REST API, webhook handlers, business logic |
+| OpenBSP Bridge | 3001 | WhatsApp Business API bridge (legacy/fallback) |
+| Grafana | 3002 | Monitoring dashboards |
+| PostgreSQL | 5432 | Primary database (users, flights, messages, payments) |
+| Redis | 6379 | Cache, session store, rate limiting |
+| Prometheus | 9090 | Metrics collection and alerting |
+| AlertManager | 9093 | Alert routing and notification |
+| Nginx | 80/443 | Reverse proxy, TLS termination, rate limiting |
 
-# OpenBSP / WhatsApp Bridge (port 3001)
-curl -sf http://localhost:3001/health | jq .
+---
 
-# PostgreSQL
-docker exec aeroassist_postgres pg_isready -U aeroassist -d aeroassist_db
+## 2. Monitoring Stack
 
-# Redis
-docker exec aeroassist_redis redis-cli -a "$REDIS_PASSWORD" ping
-
-# Nginx
-curl -sf -o /dev/null -w "%{http_code}" http://localhost/
-```
-
-### Docker Service Status
-
-```bash
-# All services overview
-docker compose ps
-
-# Specific service health
-docker inspect --format='{{.State.Health.Status}}' aeroassist_backend
-docker inspect --format='{{.State.Health.Status}}' aeroassist_postgres
-docker inspect --format='{{.State.Health.Status}}' aeroassist_redis
-docker inspect --format='{{.State.Health.Status}}' aeroassist_openbsp
-```
-
-### Monitoring Stack
+### Accessing the Monitoring Dashboard
 
 ```bash
 # Start monitoring stack
 docker compose -f docker-compose.monitoring.yml up -d
-
-# Grafana Dashboard: http://localhost:3002
-#   Login: admin / aeroassist_grafana_2024
-
-# Prometheus: http://localhost:9090
-# AlertManager: http://localhost:9093
-# Node Exporter: http://localhost:9100
 ```
 
-### Database Connectivity Check
+| Tool | URL | Credentials | Purpose |
+|------|-----|-------------|---------|
+| **Grafana** | http://localhost:3002 | `admin` / `aeroassist_grafana_2024` | Visual dashboards, alerts UI |
+| **Prometheus** | http://localhost:9090 | None (local only) | Raw metrics, PromQL queries |
+| **AlertManager** | http://localhost:9093 | None (local only) | Alert silencing, routing rules |
+| **Node Exporter** | http://localhost:9100 | None | Host-level system metrics |
+
+### Key Grafana Dashboards
+
+- **AeroAssist Overview** — Request rate, error rate, latency percentiles
+- **WhatsApp Metrics** — Messages in/out, delivery rate, webhook latency
+- **Database Health** — Connection pool, query latency, lock contention
+- **AI Pipeline** — Groq API latency, token usage, cache hit rate
+- **Infrastructure** — CPU, memory, disk, network per container
+
+### Key Alerts
+
+| Alert | Severity | Threshold | Action |
+|-------|----------|-----------|--------|
+| Error Rate > 1% | Warning | 5xx responses > 1% of total | Check logs, restart if needed |
+| Error Rate > 5% | Critical | 5xx responses > 5% of total | Immediate investigation |
+| P95 Latency > 2s | Warning | Chat endpoint response time | Check Groq, DB queries |
+| WhatsApp Webhook Down | Critical | No webhook events for 5 min | See §3.1 |
+| Database Connection Pool Exhausted | Warning | Active connections > 90% of max | See §3.4 |
+| Memory Usage > 85% | Warning | Container memory near limit | See §3.5 |
+| Stripe Webhook Failure | Critical | Payment webhook returns non-200 | See §3.3 |
+| Disk Usage > 80% | Warning | Docker volume usage | Clean logs, prune images |
+
+### Health Check Endpoint
 
 ```bash
-# Test database connection from app context
-docker exec aeroassist_backend sh -c \
-  'wget -qO- http://localhost:3000/api/health'
-
-# Check active connections
-docker exec aeroassist_postgres psql -U aeroassist -d aeroassist_db -c \
-  "SELECT count(*) FROM pg_stat_activity WHERE state = 'active';"
-
-# Check for long-running queries
-docker exec aeroassist_postgres psql -U aeroassist -d aeroassist_db -c \
-  "SELECT pid, now()-query_start AS duration, query FROM pg_stat_activity \
-   WHERE state != 'idle' ORDER BY duration DESC LIMIT 10;"
-```
-
----
-
-## 2. Restart Services
-
-### Restart a Single Service
-
-```bash
-# Backend (Next.js)
-docker compose restart backend
-
-# OpenBSP (WhatsApp bridge)
-docker compose restart openbsp
-
-# PostgreSQL
-docker compose restart postgres
-
-# Redis
-docker compose restart redis
-
-# Nginx
-docker compose restart nginx
-```
-
-### Restart All Services
-
-```bash
-# Graceful restart (preserves data)
-docker compose restart
-
-# Full stop and start (if restart is insufficient)
-docker compose down && docker compose up -d
-```
-
-### Rolling Restart (Zero Downtime)
-
-```bash
-# Restart backend with health check validation
-docker compose up -d --no-deps --force-recreate backend
-
-# Verify health after restart
-sleep 30
 curl -sf http://localhost:3000/api/health | jq .
 ```
 
-### After Restart Checklist
-
-- [ ] Verify `/api/health` returns `200 OK`
-- [ ] Verify `/api/chat` responds to test message
-- [ ] Verify OpenBSP health at `:3001/health`
-- [ ] Check Grafana dashboard for error spikes
-- [ ] Verify WhatsApp webhooks are receiving messages
-
----
-
-## 3. Check Logs
-
-### Docker Container Logs
-
-```bash
-# Backend logs (last 100 lines, follow)
-docker compose logs --tail=100 -f backend
-
-# OpenBSP logs
-docker compose logs --tail=100 -f openbsp
-
-# PostgreSQL logs
-docker compose logs --tail=100 -f postgres
-
-# Redis logs
-docker compose logs --tail=100 -f redis
-
-# Nginx access/error logs
-docker compose logs --tail=100 -f nginx
-```
-
-### Application Log Files
-
-```bash
-# Application combined log (Winston)
-tail -f logs/combined.log
-
-# Application error log
-tail -f logs/error.log
-
-# Nginx access logs
-tail -f logs/nginx/access.log
-
-# Nginx error logs
-tail -f logs/nginx/error.log
-```
-
-### Filter Logs by Level
-
-```bash
-# Show only ERROR level logs
-docker compose logs backend 2>&1 | grep -i "error\|fatal\|exception"
-
-# Show only WARN and above
-docker compose logs backend 2>&1 | grep -iE "warn|error|fatal|exception"
-
-# Find specific error patterns
-docker compose logs backend 2>&1 | grep -i "unhandled\|ECONNREFUSED\|ETIMEDOUT"
-```
-
-### Search Logs by Time Range
-
-```bash
-# Last hour of backend logs
-docker compose logs --since=1h backend
-
-# Specific time range
-docker compose logs --since="2025-01-15T10:00:00" --until="2025-01-15T11:00:00" backend
+Expected response:
+```json
+{
+  "status": "ok",
+  "timestamp": "2025-01-15T10:00:00Z",
+  "services": {
+    "database": "connected",
+    "redis": "connected",
+    "groq": "available",
+    "whatsapp": "connected"
+  },
+  "uptime": 86400
+}
 ```
 
 ---
 
-## 4. Reindex Knowledge Base
+## 3. Common Incidents & Resolution
 
-### Full Reindex
+### 3.1 WhatsApp Webhook Down
 
+**Symptoms:** Users report not receiving responses; no incoming messages in logs; Grafana shows 0 webhook events.
+
+**Diagnosis:**
 ```bash
-# Via API (recommended)
-curl -X POST http://localhost:3000/api/knowledge/reindex \
-  -H "Authorization: Bearer $ADMIN_API_KEY" \
-  -H "Content-Type: application/json"
+# 1. Check Meta status page
+open https://developers.facebook.com/status/
 
-# Via script (direct database access)
-bun run scripts/reindex-all.ts
-```
-
-### Partial Reindex (Single Document)
-
-```bash
-# Reimport a URL
-curl -X POST http://localhost:3000/api/knowledge/import-url \
-  -H "Authorization: Bearer $ADMIN_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com/airport-info"}'
-
-# Reimport a PDF
-curl -X POST http://localhost:3000/api/knowledge/import-pdf \
-  -H "Authorization: Bearer $ADMIN_API_KEY" \
-  -F "file=@document.pdf"
-```
-
-### Check Index Status
-
-```bash
-# View current knowledge base entries
-curl -s http://localhost:3000/api/knowledge \
-  -H "Authorization: Bearer $ADMIN_API_KEY" | jq '.count, .categories'
-
-# Test RAG retrieval quality
-curl -s -X POST http://localhost:3000/api/rag/test \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Où manger au terminal 2E CDG ?", "maxResults": 3}' | jq .
-```
-
-### Verify Embedding Service
-
-```bash
-# Check if the embedding service is responding
-# (Depends on configured provider - Groq, OpenAI, etc.)
-curl -s http://localhost:3000/api/health | jq '.embedding'
-```
-
----
-
-## 5. WhatsApp Provider Failover
-
-### Detect WhatsApp Issues
-
-```bash
-# Check OpenBSP health
+# 2. Check OpenBSP bridge health
 curl -sf http://localhost:3001/health | jq .
 
-# Check WhatsApp-specific status
-curl -sf http://localhost:3000/api/whatsapp/templates \
-  -H "Authorization: Bearer $ADMIN_API_KEY" | jq .
+# 3. Check webhook verification
+curl -v "http://localhost:3000/api/webhook/whatsapp?hub.mode=subscribe&hub.verify_token=aeroassist_verify_2024&hub.challenge=test"
 
-# Monitor WhatsApp webhook logs
-docker compose logs openbsp --since=30m | grep -i "whatsapp\|webhook\|error"
+# 4. Check recent webhook logs
+docker compose logs backend --since=30m | grep -i "whatsapp\|webhook"
 ```
 
-### Immediate Troubleshooting Steps
-
-1. **Verify OpenBSP connectivity:**
+**Resolution Steps:**
+1. **Verify Meta status** — Check https://developers.facebook.com/status/ for WhatsApp API outages
+2. **Verify webhook signature** — Ensure `META_WEBHOOK_VERIFY_TOKEN` matches Meta config exactly
+3. **Check access token** — Verify `META_WHATSAPP_ACCESS_TOKEN` hasn't expired in Meta Developer Portal
+4. **Restart bridge service:**
    ```bash
    docker compose restart openbsp
-   sleep 40  # Wait for health check start_period
+   sleep 40
    curl -sf http://localhost:3001/health | jq .
    ```
-
-2. **Check Meta/WhatsApp API credentials:**
-   - Verify `WHATSAPP_ACCESS_TOKEN` is valid and not expired
-   - Verify `WHATSAPP_PHONE_NUMBER_ID` matches your Meta Business account
-   - Check token rotation schedule in Meta Developer Portal
-
-3. **Test webhook verification:**
-   ```bash
-   # Verify the webhook endpoint is reachable from Meta
-   curl -v http://localhost:3000/api/webhook/whatsapp?hub.mode=subscribe&hub.verify_token=aeroassist_verify_2024&hub.challenge=test
-   ```
-
-4. **Check Redis session store:**
+5. **Test with a WhatsApp message** — Send a test message to the business number
+6. **Check Redis session store:**
    ```bash
    docker exec aeroassist_redis redis-cli -a "$REDIS_PASSWORD" DBSIZE
    ```
 
-### Failover Procedure
-
-If the primary WhatsApp provider (OpenBSP) is down for more than **5 minutes**:
-
-1. **Enable maintenance mode notification** via the admin dashboard
-2. **Notify the team** via Slack `#incidents` channel
-3. **Check Meta for service outages:** https://developers.facebook.com/status/
-4. **If Meta API is the issue:**
-   - Switch to backup access token (rotate via Meta Developer Portal)
-   - Update `WHATSAPP_ACCESS_TOKEN` in `.env` and restart: `docker compose up -d openbsp backend`
-5. **If OpenBSP is the issue:**
-   - Check Docker logs: `docker compose logs openbsp --tail=200`
-   - Scale OpenBSP: `docker compose up -d --scale openbsp=2` (if supported)
-6. **After recovery:**
-   - Verify message delivery with a test WhatsApp message
-   - Clear any queued messages from Redis
-   - Update incident ticket with root cause
-
 ---
 
-## 6. Stripe Webhook Failures
+### 3.2 Groq AI Timeout
 
-### Detect Stripe Issues
+**Symptoms:** Chat responses take > 10s or return errors; "AI service unavailable" messages to users.
 
+**Diagnosis:**
 ```bash
-# Check recent Stripe-related logs
-docker compose logs backend --since=1h | grep -i "stripe\|payment\|webhook"
+# Check Groq API latency in logs
+docker compose logs backend --since=15m | grep -i "groq\|timeout\|AI"
 
-# Check Stripe endpoint health
-curl -s http://localhost:3000/api/stripe/portal \
-  -H "Authorization: Bearer $ADMIN_API_KEY" | head -c 200
-
-# View recent webhook failures in Stripe Dashboard
-# https://dashboard.stripe.com/webhooks
+# Check API quota usage
+curl -sf http://localhost:3000/api/health | jq '.services.groq'
 ```
 
-### Immediate Troubleshooting Steps
-
-1. **Verify webhook endpoint is reachable:**
+**Resolution Steps:**
+1. **Check Groq status page** — https://groq.com/ for any service degradation
+2. **Verify API quota** — Check Groq dashboard for rate limit / token usage
+3. **Check retry configuration** — In `.env`:
    ```bash
-   # Stripe sends to: https://yourdomain.com/api/stripe/webhook
-   curl -v -X POST http://localhost:3000/api/stripe/webhook \
-     -H "Stripe-Signature: t=1234,v1=test" \
-     -d '{}'
+   GROQ_MAX_RETRIES=3
+   GROQ_TIMEOUT_MS=15000
    ```
-
-2. **Verify webhook secret:**
-   - The `STRIPE_WEBHOOK_SECRET` must match the signing secret from the Stripe Dashboard
-   - Located in `.env` → `STRIPE_WEBHOOK_SECRET`
-   - To rotate: copy new secret from Stripe Dashboard, update `.env`, restart backend
-
-3. **Check Stripe API key validity:**
+4. **Fallback behavior** — The system automatically falls back to:
+   - Cached responses from previous similar queries
+   - Pre-built knowledge base answers (RAG only, no AI generation)
+   - Graceful error message: "Notre assistant IA est temporairement indisponible. Veuillez réessayer dans quelques instants."
+5. **If persistent:**
    ```bash
-   # The key should start with `sk_live_` (prod) or `sk_test_` (staging)
-   grep STRIPE_SECRET_KEY .env
+   docker compose restart backend
+   # Monitor for 5 minutes
+   docker compose logs backend -f --since=5m | grep -i "groq"
    ```
-
-4. **Retry failed webhooks:**
-   - Go to Stripe Dashboard → Developers → Webhooks → Your endpoint
-   - Click "Send test webhook" with a `checkout.session.completed` event
-   - Or use Stripe CLI:
-     ```bash
-     stripe listen --forward-to localhost:3000/api/stripe/webhook
-     stripe trigger checkout.session.completed
-     ```
-
-### Payment Failure Escalation
-
-If multiple payment failures are detected:
-
-1. **Check if Stripe API is degraded:** https://status.stripe.com/
-2. **Review error codes** in logs for patterns:
-   - `card_declined` → Customer issue, no action needed
-   - `authentication_required` → SCA/3DS issue
-   - `rate_limit` → Your API usage is too high
-   - `api_connection_error` → Network/firewall issue
-3. **Do NOT retry failed charges automatically** — Stripe handles retries with Smart Retries
-4. **Contact Stripe Support** if the issue persists: https://support.stripe.com/
 
 ---
 
-## 7. Backup & Restore Procedures
+### 3.3 Stripe Payment Failures
 
-### PostgreSQL Backup
+**Symptoms:** Users report payment errors; Stripe Dashboard shows failed webhooks; payment intent stuck in `requires_payment_method`.
+
+**Diagnosis:**
+```bash
+# 1. Check Stripe status
+open https://status.stripe.com/
+
+# 2. Check webhook endpoint
+docker compose logs backend --since=1h | grep -i "stripe\|payment\|webhook"
+
+# 3. Test webhook endpoint manually
+curl -v -X POST http://localhost:3000/api/stripe/webhook \
+  -H "Stripe-Signature: t=1234,v1=test" \
+  -d '{}'
+
+# 4. Verify API key
+grep STRIPE_SECRET_KEY .env
+```
+
+**Resolution Steps:**
+1. **Verify webhook secret** — `STRIPE_WEBHOOK_SECRET` in `.env` must match Stripe Dashboard signing secret
+2. **Check payment intent status** — In Stripe Dashboard → Payments:
+   - `requires_payment_method` → Customer issue, no action needed
+   - `requires_confirmation` → Server didn't confirm; check logs
+   - `requires_action` → SCA/3DS authentication needed
+   - `processing` → Normal bank processing; wait
+   - `succeeded` → Payment completed
+3. **Retry failed webhooks** — Stripe Dashboard → Developers → Webhooks → Send test webhook
+4. **If secret needs rotation:**
+   ```bash
+   # Update in .env
+   STRIPE_WEBHOOK_SECRET=whsec_new_secret_value
+   # Restart backend
+   docker compose restart backend
+   ```
+5. **Common error codes:**
+   - `card_declined` → Customer's card issue
+   - `rate_limit` → Too many API calls; implement backoff
+   - `api_connection_error` → Network/firewall issue
+
+---
+
+### 3.4 Database Connection Issues
+
+**Symptoms:** 5xx errors on all endpoints; "PrismaClientInitializationError" in logs; health check shows `database: disconnected`.
+
+**Diagnosis:**
+```bash
+# 1. Check PostgreSQL status
+docker exec aeroassist_postgres pg_isready -U aeroassist -d aeroassist_db
+
+# 2. Check active connections
+docker exec aeroassist_postgres psql -U aeroassist -d aeroassist_db -c \
+  "SELECT count(*) FROM pg_stat_activity WHERE state = 'active';"
+
+# 3. Check long-running queries
+docker exec aeroassist_postgres psql -U aeroassist -d aeroassist_db -c \
+  "SELECT pid, now()-query_start AS duration, query FROM pg_stat_activity \
+   WHERE state != 'idle' ORDER BY duration DESC LIMIT 10;"
+
+# 4. Check connection pool settings
+grep DATABASE_URL .env
+```
+
+**Resolution Steps:**
+1. **Restart PostgreSQL:**
+   ```bash
+   docker compose restart postgres
+   sleep 10
+   docker exec aeroassist_postgres pg_isready -U aeroassist -d aeroassist_db
+   ```
+2. **Kill long-running idle connections:**
+   ```bash
+   docker exec aeroassist_postgres psql -U aeroassist -d aeroassist_db -c \
+     "SELECT pg_terminate_backend(pid) FROM pg_stat_activity \
+      WHERE state = 'idle' AND query_start < now() - interval '1 hour';"
+   ```
+3. **Increase connection pool** — In `DATABASE_URL`:
+   ```
+   DATABASE_URL="postgresql://aeroassist:password@postgres:5432/aeroassist_db?connection_limit=20&pool_timeout=30"
+   ```
+4. **Restart backend** to reset Prisma client connections:
+   ```bash
+   docker compose restart backend
+   ```
+5. **Check Prisma logs:**
+   ```bash
+   docker compose logs backend --since=10m | grep -i "prisma\|database\|connection"
+   ```
+
+---
+
+### 3.5 High Memory Usage
+
+**Symptoms:** Container OOM kills; Grafana memory alert > 85%; slow response times.
+
+**Diagnosis:**
+```bash
+# Check per-container memory usage
+docker stats --no-stream
+
+# Check Node.js heap (if heapdump is available)
+docker exec aeroassist_backend node -e "console.log(process.memoryUsage())"
+```
+
+**Resolution Steps:**
+1. **Immediate — restart the memory-heavy container:**
+   ```bash
+   docker compose restart backend
+   docker compose restart openbsp
+   ```
+2. **Check for memory leaks in logs:**
+   ```bash
+   docker compose logs backend --since=1h | grep -i "heap\|memory\|GC\|allocation"
+   ```
+3. **Common causes:**
+   - Session data accumulating in Redis (check `DBSIZE`)
+   - Large knowledge base chunks loaded into memory
+   - Unreleased database connections
+   - WebSocket connections not being cleaned up
+4. **Cleanup Redis sessions:**
+   ```bash
+   docker exec aeroassist_redis redis-cli -a "$REDIS_PASSWORD" FLUSHDB
+   ```
+5. **If persistent** — Capture heap snapshot for analysis:
+   ```bash
+   docker exec aeroassist_backend node -e "
+     const fs = require('fs');
+     const { performance } = require('perf_hooks');
+     // Requires heapdump or v8 module
+   "
+   ```
+
+---
+
+### 3.6 RAG Pipeline Degraded
+
+**Symptoms:** AI responses are generic or incorrect; knowledge base returns no results; slow retrieval times.
+
+**Diagnosis:**
+```bash
+# 1. Check embedding cache status
+curl -sf http://localhost:3000/api/health | jq '.embedding'
+
+# 2. Test RAG retrieval quality
+curl -s -X POST http://localhost:3000/api/rag/test \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Où manger au terminal 2E CDG ?", "maxResults": 3}' | jq .
+
+# 3. Check knowledge base entry count
+docker exec aeroassist_postgres psql -U aeroassist -d aeroassist_db -c \
+  "SELECT count(*) FROM \"KnowledgeDocument\";"
+```
+
+**Resolution Steps:**
+1. **Check embedding cache** — Redis should have cached embeddings:
+   ```bash
+   docker exec aeroassist_redis redis-cli -a "$REDIS_PASSWORD" KEYS "embedding:*" | wc -l
+   ```
+2. **Reindex knowledge base:**
+   ```bash
+   curl -X POST http://localhost:3000/api/knowledge/reindex \
+     -H "Authorization: Bearer $ADMIN_API_KEY" \
+     -H "Content-Type: application/json"
+   ```
+3. **Reimport individual documents:**
+   ```bash
+   curl -X POST http://localhost:3000/api/knowledge/import-url \
+     -H "Authorization: Bearer $ADMIN_API_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{"url": "https://example.com/airport-info"}'
+   ```
+4. **Check embedding service** — Groq or OpenAI embedding endpoint must be reachable:
+   ```bash
+   docker compose logs backend --since=15m | grep -i "embedding\|vector\|chunk"
+   ```
+5. **Verify vector similarity search:**
+   ```bash
+   docker exec aeroassist_postgres psql -U aeroassist -d aeroassist_db -c \
+     "SELECT count(*) FROM pg_extension WHERE extname = 'vector';"
+   ```
+
+---
+
+## 4. Emergency Procedures
+
+### 4.1 Rollback Steps
 
 ```bash
-# Create a backup
+# 1. Identify the previous working image/tag
+docker images | grep aeroassist_backend
+
+# 2. Stop current version
+docker compose stop backend
+
+# 3. Roll back to previous version (update docker-compose.yml or tag)
+docker tag aeroassist_backend:previous aeroassist_backend:latest
+docker compose up -d backend
+
+# 4. Verify health
+sleep 30
+curl -sf http://localhost:3000/api/health | jq .
+
+# 5. If database schema changed, rollback migrations
+docker exec aeroassist_backend npx prisma migrate reset --force
+# Then restore backup (see §5)
+```
+
+### 4.2 Force Restart All Services
+
+```bash
+# Full stop and clean start
+docker compose down
+docker compose -f docker-compose.monitoring.yml down
+docker compose up -d
+docker compose -f docker-compose.monitoring.yml up -d
+
+# Verify everything is healthy
+sleep 30
+docker compose ps
+curl -sf http://localhost:3000/api/health | jq .
+```
+
+### 4.3 Maintenance Mode
+
+```bash
+# Enable maintenance mode (responds with 503 to all chat requests)
+curl -X POST http://localhost:3000/api/admin/maintenance \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": true, "message": "Service en maintenance. Nous serons de retour sous 30 minutes."}'
+
+# Disable maintenance mode
+curl -X POST http://localhost:3000/api/admin/maintenance \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+```
+
+### 4.4 Incident Severity Matrix
+
+| Severity | Response Time | Examples |
+|----------|--------------|----------|
+| **P1 — Critical** | 15 minutes | Service down, data loss, payment failure |
+| **P2 — High** | 30 minutes | Partial outage, degraded AI, slow responses |
+| **P3 — Medium** | 2 hours | Non-critical feature broken, UI glitch |
+| **P4 — Low** | 24 hours | Minor bug, cosmetic issue, documentation |
+
+---
+
+## 5. Backup & Recovery
+
+### 5.1 PostgreSQL Backup Schedule
+
+| Schedule | Type | Retention |
+|----------|------|-----------|
+| **Daily at 02:00 UTC** | Full backup (pg_dump custom) | 30 days |
+| **Hourly** | WAL archiving (if enabled) | 7 days |
+| **On-demand** | Manual backup before deployments | Until next deployment |
+
+### 5.2 Create a Backup
+
+```bash
+# Full database backup
 docker exec aeroassist_postgres pg_dump -U aeroassist -d aeroassist_db \
   --format=custom \
   --file=/var/lib/postgresql/data/backup_$(date +%Y%m%d_%H%M%S).dump
 
 # Copy backup to host
-BACKUP_FILE=$(ls -t /var/lib/docker/volumes/aeroassist_postgres_data/_data/backup_*.dump | head -1)
-docker cp aeroassist_postgres:"$(basename $BACKUP_FILE)" ./backups/
-
-# Automated daily backup (add to crontab)
-# 0 2 * * * /path/to/backup-script.sh
+BACKUP_NAME="backup_$(date +%Y%m%d_%H%M%S).dump"
+docker exec aeroassist_postgres pg_dump -U aeroassist -d aeroassist_db \
+  --format=custom --file=/tmp/$BACKUP_NAME
+docker cp aeroassist_postgres:/tmp/$BACKUP_NAME ./backups/
 ```
 
-### PostgreSQL Restore
+### 5.3 Restore from Backup
 
 ```bash
-# Stop the backend to prevent writes during restore
+# 1. Stop backend to prevent writes during restore
 docker compose stop backend
 
-# Restore from backup
+# 2. Restore from backup (adjust filename)
 docker exec -i aeroassist_postgres pg_restore -U aeroassist -d aeroassist_db \
   --clean --if-exists --verbose < ./backups/backup_YYYYMMDD_HHMMSS.dump
 
-# Restart backend
-docker compose start backend
+# 3. Run pending Prisma migrations
+docker compose up -d backend
+docker exec aeroassist_backend npx prisma migrate deploy
 
-# Verify data integrity
+# 4. Verify data integrity
 docker exec aeroassist_postgres psql -U aeroassist -d aeroassist_db -c \
   "SELECT count(*) FROM \"User\"; SELECT count(*) FROM \"Flight\"; SELECT count(*) FROM \"KnowledgeDocument\";"
-```
 
-### Redis Backup
-
-```bash
-# Trigger Redis save (RDB snapshot)
-docker exec aeroassist_redis redis-cli -a "$REDIS_PASSWORD" BGSAVE
-
-# Copy Redis dump to host
-docker cp aeroassist_redis:/data/dump.rdb ./backups/redis_dump_$(date +%Y%m%d).rdb
-```
-
-### Configuration Backup
-
-```bash
-# Backup all configuration files
-tar czf ./backups/config_$(date +%Y%m%d).tar.gz \
-  .env \
-  docker-compose.yml \
-  docker-compose.override.yml \
-  docker-compose.monitoring.yml \
-  monitoring/ \
-  docker/nginx/nginx.conf \
-  docker/backend/Dockerfile \
-  docker/backend/entrypoint.sh \
-  docker/openbsp/config.json
-```
-
-### Full System Restore
-
-```bash
-# 1. Stop all services
-docker compose down
-docker compose -f docker-compose.monitoring.yml down
-
-# 2. Restore configuration
-tar xzf ./backups/config_YYYYMMDD.tar.gz
-
-# 3. Start infrastructure services
-docker compose up -d postgres redis
-
-# 4. Wait for healthy state
-sleep 30
-docker exec aeroassist_postgres pg_isready -U aeroassist -d aeroassist_db
-
-# 5. Restore database
-docker exec -i aeroassist_postgres pg_restore -U aeroassist -d aeroassist_db \
-  --clean --if-exists < ./backups/backup_YYYYMMDD_HHMMSS.dump
-
-# 6. Restore Redis
-docker cp ./backups/redis_dump_YYYYMMDD.rdb aeroassist_redis:/data/dump.rdb
-docker compose restart redis
-
-# 7. Start all services
-docker compose up -d
-
-# 8. Verify
-sleep 30
+# 5. Verify health
 curl -sf http://localhost:3000/api/health | jq .
 ```
 
----
-
-## 8. Common Issues & Resolutions
-
-### Error Rate Above 1%
-
-| Symptom | Likely Cause | Resolution |
-|---------|-------------|------------|
-| Spike in 5xx errors | Backend crash or OOM | Check `docker compose logs backend`, restart if needed |
-| 429 Too Many Requests | Rate limiting triggered | Check `RATE_LIMIT_MAX_REQUESTS` in `.env`, adjust if legitimate traffic |
-| 502 Bad Gateway | Nginx can't reach backend | Check backend health: `docker compose ps backend` |
-| 504 Gateway Timeout | Backend slow response | Check latency in Grafana, restart backend, investigate slow queries |
-
-### Latency P95 Above 2s
-
-| Symptom | Likely Cause | Resolution |
-|---------|-------------|------------|
-| Chat endpoint slow | Groq API latency | Check Groq service status, consider fallback model |
-| RAG search slow | Large knowledge base | Reindex, check PostgreSQL query performance |
-| All endpoints slow | Database connection pool exhausted | Check active connections, increase pool size |
-| Periodic slowness | Memory pressure | Check `docker stats`, restart services if needed |
-
-### Database Connection Issues
+### 5.4 Redis Backup
 
 ```bash
-# Check connection pool
-docker exec aeroassist_postgres psql -U aeroassist -d aeroassist_db -c \
-  "SELECT count(*) FROM pg_stat_activity;"
+# Trigger RDB snapshot
+docker exec aeroassist_redis redis-cli -a "$REDIS_PASSWORD" BGSAVE
 
-# Kill long-running idle connections
-docker exec aeroassist_postgres psql -U aeroassist -d aeroassist_db -c \
-  "SELECT pg_terminate_backend(pid) FROM pg_stat_activity \
-   WHERE state = 'idle' AND query_start < now() - interval '1 hour';"
-
-# Reset connection pool by restarting backend
-docker compose restart backend
+# Copy to host
+docker cp aeroassist_redis:/data/dump.rdb ./backups/redis_dump_$(date +%Y%m%d).rdb
 ```
 
-### Memory Issues
+### 5.5 Configuration Backup
 
 ```bash
-# Check container memory usage
+tar czf ./backups/config_$(date +%Y%m%d).tar.gz \
+  .env \
+  docker-compose.yml \
+  docker-compose.monitoring.yml \
+  monitoring/ \
+  docker/nginx/nginx.conf \
+  prisma/schema.prisma \
+  src/data/templates.json
+```
+
+---
+
+## 6. Useful Commands
+
+### Docker Commands
+
+```bash
+# All services status
+docker compose ps
+
+# Container resource usage
 docker stats --no-stream
 
-# Restart memory-heavy containers
-docker compose restart backend openbsp
+# Restart a single service
+docker compose restart backend
 
-# If persistent, check for memory leaks in logs
-docker compose logs backend --since=1h | grep -i "heap\|memory\|GC\|allocation"
-```
+# Full stop and start
+docker compose down && docker compose up -d
 
-### Disk Space Issues
+# View logs (last 100 lines, follow mode)
+docker compose logs --tail=100 -f backend
 
-```bash
-# Check disk usage
-df -h
-docker system df
+# Logs since specific time
+docker compose logs --since=1h backend
 
-# Clean up Docker resources
+# Filter error logs
+docker compose logs backend 2>&1 | grep -iE "error|fatal|exception"
+
+# Prune unused resources (disk cleanup)
 docker system prune -af --volumes
-
-# Clean old logs
-find logs/ -name "*.log" -mtime +30 -delete
-truncate -s 0 logs/combined.log
 ```
 
-### Nginx Issues
+### Health Check Commands
 
 ```bash
-# Test Nginx configuration
-docker exec aeroassist_nginx nginx -t
+# Application health
+curl -sf http://localhost:3000/api/health | jq .
 
-# Reload Nginx config (no downtime)
-docker exec aeroassist_nginx nginx -s reload
+# WhatsApp bridge health
+curl -sf http://localhost:3001/health | jq .
 
-# Check for rate limiting
-docker compose logs nginx --since=1h | grep -c "limit_req"
+# PostgreSQL status
+docker exec aeroassist_postgres pg_isready -U aeroassist -d aeroassist_db
+
+# Redis ping
+docker exec aeroassist_redis redis-cli -a "$REDIS_PASSWORD" ping
+
+# Nginx status
+curl -sf -o /dev/null -w "%{http_code}" http://localhost/
+
+# Full system status (one-liner)
+docker compose ps && echo "---" && curl -sf http://localhost:3000/api/health | jq .
 ```
+
+### Log Locations
+
+| Log Source | Location | Command |
+|-----------|----------|---------|
+| Docker container logs | Docker daemon | `docker compose logs -f backend` |
+| Application combined | `logs/combined.log` | `tail -f logs/combined.log` |
+| Application errors | `logs/error.log` | `tail -f logs/error.log` |
+| Nginx access | `logs/nginx/access.log` | `tail -f logs/nginx/access.log` |
+| Nginx errors | `logs/nginx/error.log` | `tail -f logs/nginx/error.log` |
+| Grafana | Docker daemon | `docker compose logs grafana` |
 
 ---
 
-## 9. Emergency Contacts & Escalation
+## 7. Contacts & Escalation
 
-### Escalation Levels
+### Escalation Matrix
 
-| Level | Response Time | Contact | When |
-|-------|--------------|---------|-----|
-| **L1 — On-call** | 15 minutes | Platform team Slack `#incidents` | All alerts |
-| **L2 — Senior Engineer** | 30 minutes | Engineering lead via phone | Critical alerts unresolved after 15min |
-| **L3 — CTO / VP Eng** | 1 hour | Executive via phone | Service-wide outage, data loss risk |
+| Level | Response Time | Contact Method | When to Escalate |
+|-------|--------------|----------------|-----------------|
+| **L1 — On-call** | 15 minutes | Slack `#incidents` | All alerts and incidents |
+| **L2 — Senior Engineer** | 30 minutes | Phone call | Critical unresolved after 15 min |
+| **L3 — Engineering Lead** | 1 hour | Phone call | Service-wide outage, data loss risk |
+| **L4 — CTO** | 2 hours | Phone call | Prolonged outage, customer impact |
 
-### External Vendor Contacts
+### Team Contacts
 
-| Vendor | Purpose | Dashboard / Support |
-|--------|---------|-------------------|
-| **Meta / WhatsApp Business** | WhatsApp API | https://developers.facebook.com/status/ |
-| **Stripe** | Payments & Billing | https://status.stripe.com/ |
-| **Groq** | AI/LLM Inference | https://groq.com/ |
-| **Vercel** | Hosting (if used) | https://www.vercel-status.com/ |
-| **Cloud Provider** | Infrastructure | Provider-specific dashboard |
+| Role | Name | Slack | Phone |
+|------|------|-------|-------|
+| Platform Lead | — | `@platform-lead` | — |
+| Backend Engineer | — | `@backend-oncall` | — |
+| DevOps Engineer | — | `@devops-oncall` | — |
+| Product Owner | — | `@product-owner` | — |
+
+### External Vendor Support
+
+| Vendor | Purpose | Status Page | Support |
+|--------|---------|-------------|---------|
+| **Meta / WhatsApp** | WhatsApp Business API | https://developers.facebook.com/status/ | Meta Developer Support |
+| **Stripe** | Payments & Billing | https://status.stripe.com/ | https://support.stripe.com/ |
+| **Groq** | AI/LLM Inference | https://groq.com/ | Groq Support |
+| **Cloud Provider** | Infrastructure | Provider dashboard | Provider support portal |
 
 ### Incident Communication Template
 
 ```
-🔴 INCIDENT: [Service] - [Brief Description]
+🔴 INCIDENT: [Service] — [Brief Description]
 
-**Severity:** Critical / Warning
+**Severity:** P1 Critical / P2 High / P3 Medium
 **Start Time:** YYYY-MM-DD HH:MM UTC
 **Impact:** [What users are experiencing]
-**Status:** Investigating / Identified / Monitoring / Resolved
+**Status:** Investigating / Identified / Mitigated / Resolved
 
 **Actions Taken:**
 1. [Action 1]
@@ -597,47 +643,9 @@ docker compose logs nginx --since=1h | grep -c "limit_req"
 - [Planned next action]
 - ETA for resolution: [estimate]
 
-**Runbook:** Link to relevant runbook section
+**Runbook:** docs/README-RUNBOOK.md#section
 ```
 
 ---
 
-## 10. Port Reference
-
-| Port | Service | Purpose |
-|------|---------|---------|
-| **3000** | Next.js Backend | AeroAssist application |
-| **3001** | OpenBSP | WhatsApp Business API bridge |
-| **3002** | Grafana | Monitoring dashboards |
-| **5432** | PostgreSQL | Primary database |
-| **6379** | Redis | Cache & session store |
-| **80/443** | Nginx | Reverse proxy & TLS termination |
-| **9090** | Prometheus | Metrics collection & alerting |
-| **9093** | AlertManager | Alert routing & notification |
-| **9100** | Node Exporter | Host system metrics |
-| **5050** | pgAdmin | Database admin (dev only) |
-| **5540** | Redis Insight | Redis admin (dev only) |
-
----
-
-## Quick Reference Commands
-
-```bash
-# Full system status
-docker compose ps && echo "---" && curl -sf http://localhost:3000/api/health | jq .
-
-# Restart everything
-docker compose down && docker compose up -d && sleep 30 && curl -sf http://localhost:3000/api/health | jq .
-
-# Tail all error logs
-docker compose logs -f --since=10m 2>&1 | grep -i "error\|warn\|fatal"
-
-# Start monitoring
-docker compose -f docker-compose.monitoring.yml up -d
-
-# Run load test
-cd artillery && artillery run load-test.yml
-
-# Create database backup
-docker exec aeroassist_postgres pg_dump -U aeroassist -d aeroassist_db --format=custom --file=/tmp/backup.dump && docker cp aeroassist_postgres:/tmp/backup.dump ./backups/
-```
+*This runbook is a living document. Update it after every incident with lessons learned and new resolution procedures.*

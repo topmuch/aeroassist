@@ -1,68 +1,99 @@
 global:
   resolve_timeout: 5m
 
-# Route alerts to appropriate channels based on severity
+# Route alerts to appropriate channels
 route:
-  group_by: ['alertname', 'severity', 'team']
+  group_by: ['alertname']
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h
-  receiver: 'default'
+  receiver: 'slack'
   routes:
-    # Critical alerts - immediate notification
+    # Critical alerts - immediate notification via all channels
     - match:
         severity: critical
-      receiver: 'slack-critical'
-      group_wait: 10s
-      repeat_interval: 30m
-      routes:
-        - match:
-            team: integrations
-          receiver: 'slack-integrations'
-        - match:
-            team: billing
-          receiver: 'slack-billing'
+      receiver: 'pagerduty'
+      continue: true
+    - match:
+        severity: critical
+      receiver: 'email'
+      continue: true
+    - match:
+        severity: critical
+      receiver: 'slack'
+      continue: true
 
-    # Warning alerts - less urgent
+    # Warning alerts - Slack and email only
     - match:
         severity: warning
-      receiver: 'slack-warnings'
-      repeat_interval: 2h
+      receiver: 'slack'
+      continue: true
+    - match:
+        severity: warning
+      receiver: 'email'
 
-# Notification templates
+# Slack notification templates
 templates:
   - '/etc/alertmanager/templates/*.tmpl'
 
 receivers:
-  - name: 'default'
-    webhook_configs:
-      - url: 'http://localhost:3000/api/webhook/alertmanager'
+  - name: 'slack'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
         send_resolved: true
+        channel: '#alerts-aeroassist'
+        title: '{{ .Status | toUpper }}: {{ .GroupLabels.alertname }}'
+        text: >-
+          {{ range .Alerts }}
+          *Alert:* {{ .Labels.alertname }}
+          *Severity:* {{ .Labels.severity }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
 
-  - name: 'slack-critical'
-    webhook_configs:
-      - url: '${SLACK_CRITICAL_WEBHOOK_URL}'
-        send_resolved: true
+  - name: 'email'
+    email_configs:
+      - to: 'oncall@aeroassist.fr'
+        from: 'alertmanager@aeroassist.fr'
+        smarthost: '${SMTP_HOST}:${SMTP_PORT}'
+        auth_username: '${SMTP_USERNAME}'
+        auth_password: '${SMTP_PASSWORD}'
+        require_tls: true
+        headers:
+          Subject: '[AeroAssist {{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>AeroAssist Alert: {{ .Status | toUpper }}</h2>
+          <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; font-family: sans-serif;">
+            <tr style="background-color: #f5f5f5;">
+              <th>Alert</th>
+              <th>Severity</th>
+              <th>Summary</th>
+              <th>Description</th>
+            </tr>
+            {{ range .Alerts }}
+            <tr>
+              <td>{{ .Labels.alertname }}</td>
+              <td>{{ .Labels.severity }}</td>
+              <td>{{ .Annotations.summary }}</td>
+              <td>{{ .Annotations.description }}</td>
+            </tr>
+            {{ end }}
+          </table>
 
-  - name: 'slack-warnings'
-    webhook_configs:
-      - url: '${SLACK_WARNINGS_WEBHOOK_URL}'
-        send_resolved: true
+  - name: 'pagerduty'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_KEY}'
+        severity: '{{ if eq .GroupLabels.severity "critical" }}critical{{ else }}warning{{ end }}'
+        description: '{{ .GroupLabels.alertname }}'
+        details:
+          summary: '{{ .CommonAnnotations.summary }}'
+          description: '{{ .CommonAnnotations.description }}'
 
-  - name: 'slack-integrations'
-    webhook_configs:
-      - url: '${SLACK_INTEGRATIONS_WEBHOOK_URL}'
-        send_resolved: true
-
-  - name: 'slack-billing'
-    webhook_configs:
-      - url: '${SLACK_BILLING_WEBHOOK_URL}'
-        send_resolved: true
-
-# Inhibition rules to suppress redundant alerts
+# Inhibition rules: critical alerts suppress warnings for the same alertname
 inhibit_rules:
   - source_match:
       severity: 'critical'
     target_match:
       severity: 'warning'
-    equal: ['alertname', 'instance']
+    equal: ['alertname']

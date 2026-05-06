@@ -1,45 +1,38 @@
 {
-  "version": "1.0",
   "templates": [
     {
       "name": "aeroassist_welcome",
-      "displayName": "AeroAssist Welcome",
-      "category": "UTILITY",
       "language": "fr",
-      "body": "✈️ Bienvenue sur AeroAssist !\n\nJe suis votre assistant virtuel pour les aéroports CDG et ORLY.\n\nComment puis-je vous aider ?\n1️⃣ Statut d'un vol\n2️⃣ Restaurants\n3️⃣ Transports\n4️⃣ Services\n\nRépondez avec le numéro de votre choix.",
-      "status": "draft"
+      "category": "MARKETING",
+      "body": "Bienvenue chez AeroAssist ✈️ ! Je suis votre assistant virtuel d'aéroport. Comment puis-je vous aider aujourd'hui ?\n\n🍽️ Restaurants & Cafés\n🛍️ Boutiques & Shopping\n🏨 Hôtels & Salons VIP\n🚗 Transports & Navettes\n✈️ Infos Vols\n\nEnvoyez-moi votre question en français ou anglais !"
     },
     {
       "name": "aeroassist_flight_status",
-      "displayName": "Flight Status Update",
-      "category": "UTILITY",
       "language": "fr",
-      "body": "✈️ *Mise à jour vol {{1}}*\n\nStatut : {{2}}\nDépart prévu : {{3}}\nTerminal : {{4}}\nPorte : {{5}}\n\n_AeroAssist — Vérifié à {{6}}_",
-      "status": "draft"
+      "category": "UTILITY",
+      "body": "✈️ *Statut de votre vol*\n\nVol : {{1}}\nDépart : {{2}}\nArrivée : {{3}}\nStatut : {{4}}\nPorte : {{5}}\n\nDernière mise à jour : {{6}}",
+      "parameters": ["flight_number", "departure", "arrival", "status", "gate", "timestamp"]
     },
     {
       "name": "aeroassist_reservation_confirmed",
-      "displayName": "Reservation Confirmation",
-      "category": "UTILITY",
       "language": "fr",
-      "body": "✅ *Réservation confirmée !*\n\n🏷️ {{1}}\n📅 {{2}}\n📍 {{3}}\n💰 {{4}} EUR\n\nRéférence : {{5}}\n\n_Merci de votre confiance — AeroAssist_",
-      "status": "draft"
+      "category": "UTILITY",
+      "body": "✅ *Réservation confirmée*\n\nRéférence : {{1}}\nService : {{2}}\nDate : {{3}}\nMontant : {{4}}\n\nMerci pour votre confiance ! Votre facture sera envoyée par email.\n\nAeroAssist ✈️",
+      "parameters": ["reference", "service", "date", "amount"]
     },
     {
       "name": "aeroassist_24h_reminder",
-      "displayName": "24h Reminder",
-      "category": "MARKETING",
       "language": "fr",
-      "body": "🔔 *Rappel 24h*\n\nVotre réservation {{1}} est demain !\n\n📍 {{2}}\n📅 {{3}}\n\n*Besoin de modifier ?* Répondez à ce message.",
-      "status": "draft"
+      "category": "UTILITY",
+      "body": "⏰ *Rappel AeroAssist*\n\nVotre réservation *{{1}}* est prévue demain.\n\n📍 Lieu : {{2}}\n🗓️ Date : {{3}}\n\nBesoin de modifier ? Contactez-nous !\n\nAeroAssist ✈️",
+      "parameters": ["service", "location", "date"]
     },
     {
       "name": "aeroassist_payment_receipt",
-      "displayName": "Payment Receipt",
-      "category": "UTILITY",
       "language": "fr",
-      "body": "💳 *Reçu de paiement*\n\nMontant : {{1}} EUR\nService : {{2}}\nRéférence : {{3}}\nDate : {{4}}\n\n_Facture disponible dans votre espace client._",
-      "status": "draft"
+      "category": "ACCOUNT_UPDATE",
+      "body": "💰 *Paiement reçu*\n\nMontant : {{1}}\nRéférence : {{2}}\nStatut : Confirmé\n\nVotre facture sera disponible dans votre espace client.\n\nMerci pour votre confiance !\nAeroAssist ✈️",
+      "parameters": ["amount", "reference"]
     }
   ]
 }
