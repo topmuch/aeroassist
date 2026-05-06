@@ -1,0 +1,68 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Next.js
+.next
+out
+
+# Docker
+docker-compose*.yml
+docker/
+Dockerfile
+.dockerignore
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+dev.log
+server.log
+
+# Database (dev)
+db/
+*.db
+*.db-journal
+
+# Uploads
+upload/
+uploads/
+
+# Misc
+.turbo
+coverage
+.nyc_output
+.cache
+.agent-ctx
+.zscripts
+examples
+mini-services
+download
+skills
+agent-ctx
+worklog.md
+tsconfig.tsbuildinfo
+bun.lock
+Caddyfile
+
+# Prisma dev (keep postgres schema for Docker build)
+prisma/schema.sqlite.prisma

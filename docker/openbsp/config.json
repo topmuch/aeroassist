@@ -1,0 +1,30 @@
+{
+  "instance": {
+    "name": "aeroassist_main",
+    "webhook_url": "${WEBHOOK_URL}",
+    "webhook_secret": "${WEBHOOK_SECRET}"
+  },
+  "whatsapp": {
+    "api_version": "v17.0",
+    "business_account_id": "${WHATSAPP_BUSINESS_ACCOUNT_ID}",
+    "phone_number_id": "${OPENBSP_PHONE_NUMBER_ID}"
+  },
+  "redis": {
+    "url": "${REDIS_URL}",
+    "key_prefix": "openbsp:"
+  },
+  "rate_limit": {
+    "enabled": true,
+    "max_requests": 100,
+    "window_seconds": 60
+  },
+  "logging": {
+    "level": "info",
+    "format": "json",
+    "output": "stdout"
+  },
+  "session": {
+    "store_type": "redis",
+    "ttl_seconds": 86400
+  }
+}
