@@ -165,3 +165,36 @@ model AnalyticsEvent {
   metadata  String?  // JSON string
   createdAt DateTime @default(now())
 }
+
+// ─── WHATSAPP CONTACTS (OpenBSP) ────────────────────────────────
+
+model WhatsAppContact {
+  id              String    @id @default(cuid())
+  phoneNumber     String    @unique            // E.164 format: +33612345678
+  waId            String?                      // WhatsApp internal ID
+  pushName        String?                      // Name set by user in WhatsApp
+  language        String    @default("fr")
+  isOptIn         Boolean   @default(true)     // RGPD opt-in consent
+  isBlacklisted   Boolean   @default(false)    // Blocked users
+  lastSeenAt      DateTime?
+  messageCount    Int       @default(0)
+  optInDate       DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// ─── WHATSAPP TEMPLATES (OpenBSP) ──────────────────────────────
+
+model WhatsAppTemplate {
+  id            String   @id @default(cuid())
+  name          String   @unique              // Template name in Meta
+  displayName   String                        // Human-readable name
+  category      String                        // MARKETING, UTILITY, AUTHENTICATION
+  language      String   @default("fr")
+  status        String   @default("draft")    // draft, submitted, approved, rejected
+  metaTemplateId String?                      // Template ID from Meta
+  components    String   @default("[]")       // JSON: template components
+  bodyText      String?                      // Template body text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

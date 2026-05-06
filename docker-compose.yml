@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # ── PostgreSQL with pgvector (for production with vector search) ──
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: aeroassist-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aeroassist}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aeroassist_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-aeroassist}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aeroassist"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis (session store, rate limiting, queues) ──
+  redis:
+    image: redis:7-alpine
+    container_name: aeroassist-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── OpenBSP WhatsApp API Bridge ──
+  openbsp:
+    image: whiskeyhuntercom/openbsp:latest
+    container_name: aeroassist-openbsp
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - WEBHOOK_URL=http://aeroassist:3000/api/webhook/openbsp
+      - REDIS_URL=redis://redis:6379
+      - INSTANCE_NAME=aeroassist-main
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - openbsp_data:/openbsp/data
+
+  # ── AeroAssist (Next.js Application) ──
+  aeroassist:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aeroassist-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/data/aeroassist.db
+      - OPENBSP_API_URL=http://openbsp:3001
+      - OPENBSP_WEBHOOK_SECRET=${OPENBSP_WEBHOOK_SECRET:-change-me-in-production}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN:-}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID:-}
+      - WHATSAPP_APP_SECRET=${WHATSAPP_APP_SECRET:-}
+      - WHATSAPP_VERIFY_TOKEN=${WHATSAPP_VERIFY_TOKEN:-aeroassist_verify_2024}
+    depends_on:
+      redis:
+        condition: service_healthy
+      openbsp:
+        condition: service_started
+    volumes:
+      - ./db:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+  openbsp_data:

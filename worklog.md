@@ -343,3 +343,50 @@ Stage Summary:
 - All 8 tabs functional, all API calls preserved
 - Mobile responsive with bottom tab bar
 - Lint clean, no compilation errors
+
+---
+Task ID: 11
+Agent: fullstack-developer
+Task: Create OpenBSP Bridge mini-service
+
+Work Log:
+- Created `mini-services/openbsp-bridge/` as a standalone bun project
+- Created `package.json` with scripts: dev (`bun --hot index.ts`), start (`bun index.ts`)
+- Created `index.ts` (~350 lines) using Bun.serve() with zero external dependencies
+- Implemented 8 endpoints:
+  - GET /health → Service health + connected sessions + message stats
+  - POST /api/sendMessage → Send text message, returns OpenBSP format `{status, messageId, chatId, timestamp}`, stores message, forwards to AeroAssist
+  - POST /api/sendFile → Send media message, returns OpenBSP format with media object
+  - GET /api/qr → QR code status (simulated "connected" with battery level)
+  - GET /api/sessions → List active sessions with uptime
+  - POST /api/simulate/incoming → Simulate incoming WhatsApp message, forwards OpenBSP-format payload to AeroAssist webhook at http://localhost:3000/api/webhook/openbsp
+  - GET /api/messages → Message history (sent + received) with stats
+  - GET /api/contacts → Known contacts aggregated from messages
+- In-memory stores: sessions, sentMessages, incomingMessages
+- OpenBSP webhook payload format for incoming messages (text: `conversation`, media: `imageMessage`)
+- OpenBSP send response format: `{status: true, messageId: "wa_xxx_yyy", chatId: "...", timestamp: ...}`
+- Input validation with 400 errors for missing fields
+- Structured logging with timestamp, level, path
+- Pretty ASCII banner on startup with all endpoint info
+- Configurable via env vars: AEROASSIST_WEBHOOK_URL, INSTANCE_NAME
+
+Tests effectués:
+- GET /health → 200 (status ok, 1 connected session, 0 messages)
+- GET /api/qr → 200 (status connected, battery 85%)
+- GET /api/sessions → 200 (1 session, uptime 86401s)
+- POST /api/sendMessage → 200 (wa_kdlgh6a1_rjsq, correct format)
+- POST /api/sendFile → 200 (correct format with media object)
+- POST /api/simulate/incoming (text) → 200 (correct OpenBSP payload format, forwarded to AeroAssist webhook)
+- POST /api/simulate/incoming (media) → 200 (imageMessage format with url/mimetype/caption)
+- GET /api/messages → 200 (1 sent, 1 received, 0 forwarded)
+- GET /api/contacts → 200 (2 contacts aggregated)
+- Validation: missing fields → 400 error
+- 404: returns available endpoints list
+- AeroAssist webhook forwarding: correctly hits http://localhost:3000/api/webhook/openbsp (returns 404 expected since endpoint not created yet)
+
+Stage Summary:
+- Standalone bun mini-service on port 3001, zero dependencies
+- Full OpenBSP WhatsApp API simulation for local development
+- Production-ready bridge pattern for incoming message forwarding
+- Correct payload formats matching OpenBSP specification
+- All 8 endpoints tested and verified
