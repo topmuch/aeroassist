@@ -232,12 +232,12 @@
    Sidebar Styles
    ═══════════════════════════════════════════════════════════════════════════ */
 .admin-sidebar {
-  background: linear-gradient(180deg, #0a1929, #0f2744);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, #c2410c, #ea580c, #f97316);
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
 }
 .dark .admin-sidebar {
-  background: linear-gradient(180deg, #060a13 0%, #0a1020 100%);
-  border-right: 1px solid rgba(212, 168, 83, 0.08);
+  background: linear-gradient(180deg, #7c2d12 0%, #9a3412 50%, #c2410c 100%);
+  border-right: 1px solid rgba(251, 146, 60, 0.15);
 }
 
 .sidebar-nav-item {
@@ -254,23 +254,24 @@
   white-space: nowrap;
 }
 .sidebar-nav-item:hover {
-  color: #e2e8f0;
-  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
 }
 .dark .sidebar-nav-item:hover {
-  color: #f1f5f9;
-  background: rgba(212, 168, 83, 0.06);
+  color: #fde68a;
+  background: rgba(251, 146, 60, 0.12);
 }
 .sidebar-nav-item.active {
   color: #ffffff;
-  background: linear-gradient(135deg, #1e40af, #3b82f6);
-  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.3);
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 2px 12px rgba(255, 255, 255, 0.1);
 }
 .dark .sidebar-nav-item.active {
-  color: #080d18;
-  background: linear-gradient(135deg, #d4a853, #c9a84c);
-  box-shadow: 0 2px 16px rgba(212, 168, 83, 0.25);
+  color: #fffbeb;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  box-shadow: 0 2px 16px rgba(251, 191, 36, 0.3);
   font-weight: 600;
+  color: #451a03;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

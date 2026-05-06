@@ -1390,12 +1390,12 @@ export default function AdminDashboard() {
       <aside className="admin-sidebar w-64 shrink-0 hidden md:flex flex-col p-4">
         {/* Logo */}
         <div className="flex items-center gap-3 mb-8 px-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#3b82f6] to-[#1e40af] flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
             <Plane className="h-5 w-5 text-white" />
           </div>
           <div>
             <h2 className="font-bold text-white text-sm tracking-wider">AEROASSIST</h2>
-            <p className="text-xs text-slate-400">Administration</p>
+            <p className="text-xs text-white/60">Administration</p>
           </div>
         </div>
 
@@ -1492,90 +1492,90 @@ export default function AdminDashboard() {
                 <>
                   {/* Stat Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="premium-card border-0 overflow-hidden">
+                    <Card className="border-0 overflow-hidden bg-gradient-to-br from-rose-400 to-rose-600 shadow-lg shadow-rose-500/25">
                       <CardContent className="p-5 relative">
-                        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-400 to-blue-600" />
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-white/30" />
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-muted-foreground">
+                            <p className="text-sm font-medium text-white/80">
                               Conversations
                             </p>
-                            <p className="text-3xl font-bold mt-1 bg-gradient-to-r from-blue-600 to-blue-400 dark:from-blue-400 dark:to-blue-300 bg-clip-text text-transparent">
+                            <p className="text-3xl font-bold mt-1 text-white">
                               {analytics?.overview.totalConversations.toLocaleString("fr-FR") || "0"}
                             </p>
                             <div className="flex items-center gap-1 mt-2">
-                              <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
-                              <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                              <TrendingUp className="h-3.5 w-3.5 text-white/70" />
+                              <span className="text-xs text-white/70 font-medium">
                                 Données en direct
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-400 to-blue-600 shadow-lg shadow-blue-500/20">
+                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm">
                             <MessageCircle className="h-7 w-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
 
-                    <Card className="premium-card border-0 overflow-hidden">
+                    <Card className="border-0 overflow-hidden bg-gradient-to-br from-violet-400 to-violet-600 shadow-lg shadow-violet-500/25">
                       <CardContent className="p-5 relative">
-                        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-400 to-emerald-600" />
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-white/30" />
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-muted-foreground">
+                            <p className="text-sm font-medium text-white/80">
                               Messages totaux
                             </p>
-                            <p className="text-3xl font-bold mt-1 bg-gradient-to-r from-emerald-600 to-emerald-400 dark:from-emerald-400 dark:to-emerald-300 bg-clip-text text-transparent">
+                            <p className="text-3xl font-bold mt-1 text-white">
                               {analytics?.overview.totalMessages.toLocaleString("fr-FR") || "0"}
                             </p>
                             <div className="flex items-center gap-1 mt-2">
-                              <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
-                              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                              <TrendingUp className="h-3.5 w-3.5 text-white/70" />
+                              <span className="text-xs text-white/70 font-medium">
                                 Toutes conversations
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/20">
+                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm">
                             <Users className="h-7 w-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
 
-                    <Card className="premium-card border-0 overflow-hidden">
+                    <Card className="border-0 overflow-hidden bg-gradient-to-br from-orange-400 to-orange-600 shadow-lg shadow-orange-500/25">
                       <CardContent className="p-5 relative">
-                        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-amber-400 to-orange-500" />
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-white/30" />
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-muted-foreground">
+                            <p className="text-sm font-medium text-white/80">
                               Utilisateurs actifs
                             </p>
-                            <p className="text-3xl font-bold mt-1 bg-gradient-to-r from-amber-600 to-orange-500 dark:from-amber-400 dark:to-orange-300 bg-clip-text text-transparent">
+                            <p className="text-3xl font-bold mt-1 text-white">
                               {analytics?.overview.activeUsers.toLocaleString("fr-FR") || "0"}
                             </p>
                             <div className="flex items-center gap-1 mt-2">
-                              <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
-                              <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                              <TrendingUp className="h-3.5 w-3.5 text-white/70" />
+                              <span className="text-xs text-white/70 font-medium">
                                 Utilisateurs inscrits
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/20">
+                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm">
                             <CheckCircle className="h-7 w-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
 
-                    <Card className="premium-card border-0 overflow-hidden">
+                    <Card className="border-0 overflow-hidden bg-gradient-to-br from-green-400 to-green-600 shadow-lg shadow-green-500/25">
                       <CardContent className="p-5 relative">
-                        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-violet-400 to-purple-600" />
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-white/30" />
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-muted-foreground">
+                            <p className="text-sm font-medium text-white/80">
                               Taux de Résolution
                             </p>
-                            <p className="text-3xl font-bold mt-1 bg-gradient-to-r from-violet-600 to-purple-500 dark:from-violet-400 dark:to-purple-300 bg-clip-text text-transparent">
+                            <p className="text-3xl font-bold mt-1 text-white">
                               {analytics?.overview.resolutionRate != null
                                 ? `${(analytics.overview.resolutionRate * 100).toFixed(1)}%`
                                 : "—"}
@@ -1583,17 +1583,17 @@ export default function AdminDashboard() {
                             <div className="flex items-center gap-1 mt-2">
                               {analytics?.overview.resolutionRate != null &&
                               analytics.overview.resolutionRate >= 0.9 ? (
-                                <TrendingUp className="h-3.5 w-3.5 text-violet-500" />
+                                <TrendingUp className="h-3.5 w-3.5 text-white/70" />
                               ) : (
-                                <TrendingDown className="h-3.5 w-3.5 text-orange-500" />
+                                <TrendingDown className="h-3.5 w-3.5 text-white/70" />
                               )}
-                              <span className="text-xs text-violet-600 dark:text-violet-400 font-medium">
+                              <span className="text-xs text-white/70 font-medium">
                                 Temps moyen :{" "}
                                 {analytics?.overview.avgResponseTimeSeconds || 0}s
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-br from-violet-400 to-purple-600 shadow-lg shadow-purple-500/20">
+                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm">
                             <Euro className="h-7 w-7 text-white" />
                           </div>
                         </div>
