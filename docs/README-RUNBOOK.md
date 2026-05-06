@@ -360,7 +360,7 @@ curl -s -X POST http://localhost:3000/api/rag/test \
 
 # 3. Check knowledge base entry count
 docker exec aeroassist_postgres psql -U aeroassist -d aeroassist_db -c \
-  "SELECT count(*) FROM \"KnowledgeDocument\";"
+  "SELECT count(*) FROM \"KnowledgeBaseEntry\";"
 ```
 
 **Resolution Steps:**
@@ -500,7 +500,7 @@ docker exec aeroassist_backend npx prisma migrate deploy
 
 # 4. Verify data integrity
 docker exec aeroassist_postgres psql -U aeroassist -d aeroassist_db -c \
-  "SELECT count(*) FROM \"User\"; SELECT count(*) FROM \"Flight\"; SELECT count(*) FROM \"KnowledgeDocument\";"
+  "SELECT count(*) FROM \"User\"; SELECT count(*) FROM \"Flight\"; SELECT count(*) FROM \"KnowledgeBaseEntry\";"
 
 # 5. Verify health
 curl -sf http://localhost:3000/api/health | jq .

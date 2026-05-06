@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/security';
+import logger from '@/lib/logger';
 
 // ── Validation Schema ──────────────────────────────────────────
 
@@ -164,13 +165,11 @@ export async function GET(request: NextRequest) {
       ? (totalPaid._sum.totalAmount || 0) / paidCount
       : 0;
 
-    console.log(JSON.stringify({
-      level: 'info',
+    logger.info('billing_stats_fetched', {
       traceId,
-      event: 'billing_stats_fetched',
       totalRevenue: totalRevenue._sum.totalAmount,
       totalReservations,
-    }));
+    });
 
     return NextResponse.json({
       success: true,
@@ -201,12 +200,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error(JSON.stringify({
-      level: 'error',
+    logger.error('billing_stats_error', {
       traceId,
-      event: 'billing_stats_error',
       error: message,
-    }));
+    });
 
     return NextResponse.json(
       { error: 'Internal server error', message: 'Failed to fetch billing stats' },

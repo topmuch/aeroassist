@@ -30,7 +30,7 @@
     {
       "name": "aeroassist_payment_receipt",
       "language": "fr",
-      "category": "ACCOUNT_UPDATE",
+      "category": "UTILITY",
       "body": "💰 *Paiement reçu*\n\nMontant : {{1}}\nRéférence : {{2}}\nStatut : Confirmé\n\nVotre facture sera disponible dans votre espace client.\n\nMerci pour votre confiance !\nAeroAssist ✈️",
       "parameters": ["amount", "reference"]
     }

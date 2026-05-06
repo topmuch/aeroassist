@@ -135,7 +135,14 @@ export async function stripeRequest(
     body: options.body
       ? Object.entries(options.body)
           .filter(([_, v]) => v !== undefined && v !== null)
-          .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+          .map(([k, v]) => {
+            // Stripe expects array keys like payment_method_types[] to remain unencoded
+            // Only encode the key if it doesn't end with []
+            const encodedKey = k.endsWith('[]')
+              ? k
+              : encodeURIComponent(k);
+            return `${encodedKey}=${encodeURIComponent(String(v))}`;
+          })
           .join('&')
       : undefined,
   });

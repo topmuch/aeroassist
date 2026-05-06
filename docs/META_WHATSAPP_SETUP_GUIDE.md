@@ -58,7 +58,7 @@ The temporary token expires in 24 hours. Generate a permanent one:
 1. In the WhatsApp Configuration panel, under **API Setup**, find **Access Token**.
 2. For production: Add a **System User** in Business Settings → System Users → Generate Token.
 3. Select permissions: `whatsapp_business_messaging`, `whatsapp_business_management`.
-4. Copy the token — you'll set it as `META_WHATSAPP_ACCESS_TOKEN`.
+4. Copy the token — you'll set it as `WHATSAPP_ACCESS_TOKEN`.
 
 ### Step 5: Configure the Webhook URL
 
@@ -70,7 +70,7 @@ The temporary token expires in 24 hours. Generate a permanent one:
    https://your-domain.com/api/webhook/whatsapp
    ```
 
-4. Enter the **Verify Token** — this must match `META_WEBHOOK_VERIFY_TOKEN` in your `.env`:
+4. Enter the **Verify Token** — this must match `WHATSAPP_WEBHOOK_VERIFY_TOKEN` in your `.env`:
 
    ```
    aeroassist_webhook_verify_2024
@@ -107,33 +107,33 @@ Add the following to your AeroAssist `.env` file:
 ```bash
 # ── WhatsApp Meta Cloud API ──────────────────────────────────
 # Required: Permanent access token from Meta App Dashboard
-META_WHATSAPP_ACCESS_TOKEN=EAAxxxxxxxxxxxxxxxx
+WHATSAPP_ACCESS_TOKEN=EAAxxxxxxxxxxxxxxxx
 
 # Required: Phone Number ID from WhatsApp Configuration
-META_WHATSAPP_PHONE_NUMBER_ID=1xxxxxxxxxx
+WHATSAPP_PHONE_NUMBER_ID=1xxxxxxxxxx
 
 # Required: Webhook verify token (must match Meta webhook config)
-META_WEBHOOK_VERIFY_TOKEN=aeroassist_webhook_verify_2024
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=aeroassist_webhook_verify_2024
 
 # Required: Business Account ID from Business Settings
-META_WHATSAPP_BUSINESS_ACCOUNT_ID=1xxxxxxxxxx
+WHATSAPP_BUSINESS_ACCOUNT_ID=1xxxxxxxxxx
 
 # Required: App Secret for HMAC webhook signature verification
-META_APP_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+WHATSAPP_APP_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # Optional: Graph API version (default: v19.0)
-META_API_VERSION=v19.0
+WHATSAPP_API_VERSION=v19.0
 ```
 
 ### Where to Find Each Value
 
 | Variable | Where to Find It |
 |----------|-----------------|
-| `META_WHATSAPP_ACCESS_TOKEN` | App Dashboard → WhatsApp → API Setup → System User Token |
-| `META_WHATSAPP_PHONE_NUMBER_ID` | App Dashboard → WhatsApp → API Setup → Phone Number ID |
-| `META_WEBHOOK_VERIFY_TOKEN` | You define this — must match Meta webhook config |
-| `META_WHATSAPP_BUSINESS_ACCOUNT_ID` | Business Settings → Business Info → Business ID |
-| `META_APP_SECRET` | App Dashboard → Settings → Basic → App Secret → Show |
+| `WHATSAPP_ACCESS_TOKEN` | App Dashboard → WhatsApp → API Setup → System User Token |
+| `WHATSAPP_PHONE_NUMBER_ID` | App Dashboard → WhatsApp → API Setup → Phone Number ID |
+| `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | You define this — must match Meta webhook config |
+| `WHATSAPP_BUSINESS_ACCOUNT_ID` | Business Settings → Business Info → Business ID |
+| `WHATSAPP_APP_SECRET` | App Dashboard → Settings → Basic → App Secret → Show |
 
 > **Security:** Never commit these tokens to Git. Use environment variables or a secrets manager in production.
 
@@ -253,8 +253,8 @@ Meta enforces rate limits on the WhatsApp Business API. Here are the key limits:
 
 | Symptom | Cause | Solution |
 |---------|-------|----------|
-| Verification fails (403) | Wrong verify token | Ensure `META_WEBHOOK_VERIFY_TOKEN` matches Meta config exactly |
-| Signature verification fails | Wrong app secret | Check `META_APP_SECRET` matches App Dashboard |
+| Verification fails (403) | Wrong verify token | Ensure `WHATSAPP_WEBHOOK_VERIFY_TOKEN` matches Meta config exactly |
+| Signature verification fails | Wrong app secret | Check `WHATSAPP_APP_SECRET` matches App Dashboard |
 | 200 but no data | Not subscribed to `messages` | Re-subscribe in Meta webhook settings |
 | Timeout errors | Server unreachable | Ensure HTTPS, port 443 open, DNS resolves |
 
