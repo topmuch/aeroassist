@@ -9,6 +9,7 @@
  * Uses Stripe API v2024-12-18.acacia
  */
 
+import { db } from './db';
 import logger from './logger';
 
 // ── Types ────────────────────────────────────────────────────────
@@ -367,7 +368,6 @@ export async function processWebhookEvent(event: Record<string, unknown>): Promi
         const amountTotal = data.amount_total as number;
 
         if (userId && reservationType) {
-          const { db } = await import('./db');
           const reference = `STR_${(data.id as string).slice(-12)}`;
 
           await db.reservation.create({
@@ -418,9 +418,6 @@ export async function processWebhookEvent(event: Record<string, unknown>): Promi
         const amountRefunded = data.amount_refunded as number;
 
         if (userId) {
-          const { db } = await import('./db');
-
-          // Find the most recent paid reservation for this user
           const reservation = await db.reservation.findFirst({
             where: {
               userId,

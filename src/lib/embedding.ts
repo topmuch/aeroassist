@@ -10,7 +10,6 @@
  * All vectors are L2-normalized for cosine similarity search.
  */
 
-import crypto from 'crypto';
 import logger from './logger';
 
 // ── Types ────────────────────────────────────────────────────────
@@ -223,6 +222,17 @@ async function tryRealEmbedding(text: string): Promise<EmbeddingResult> {
   }
 }
 
+// ── Simple Hash Function (no crypto dependency) ────────────────
+
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash + char) | 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
 // ── Public API ──────────────────────────────────────────────────
 
 /**
@@ -237,8 +247,8 @@ export async function generateEmbedding(
   text: string,
   forceRefresh = false
 ): Promise<EmbeddingResult> {
-  // Create a cache key from the text
-  const cacheKey = crypto.createHash('sha256').update(text).digest('hex').slice(0, 16);
+  // Create a cache key from the text (simple hash)
+  const cacheKey = simpleHash(text).slice(0, 16);
 
   // Check cache
   if (!forceRefresh && embeddingCache.has(cacheKey)) {

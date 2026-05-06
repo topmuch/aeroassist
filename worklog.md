@@ -82,3 +82,37 @@ Stage Summary:
   - ESLint: 0 erreurs
   - Compilation: 0 erreurs
   - 0 erreurs dans les dev logs (hors prisma:query et security warnings normaux)
+
+---
+Task ID: 1
+Agent: Main Developer
+Task: Full system integration - RAG/pgvector, OpenBSP Mock, Stripe, E2E fixes
+
+Work Log:
+- **Auto-critique** identified critical bug: /api/chat bypassed AI Assistant + RAG pipeline
+- Fixed /api/chat to use processAssistantMessage (unified AI pipeline with RAG + Groq)
+- Created src/lib/embedding.ts — 384-dim embedding service with hash fallback (dev) + API fallback (prod)
+- Rewrote src/lib/rag.ts — dual-mode: pgvector cosine similarity (PostgreSQL) + keyword matching (SQLite fallback)
+- Created src/lib/knowledge-indexer.ts — article indexing with embedding generation + file-based storage (SQLite)
+- Created src/app/api/rag/test/route.ts — RAG quality testing endpoint
+- Created src/app/api/knowledge/reindex/route.ts — KB reindexing endpoint (full/incremental/single)
+- Created src/lib/stripe.ts — full Stripe integration (checkout, webhooks, portal, pricing)
+- Created src/app/api/stripe/checkout/route.ts — Stripe checkout session creation
+- Created src/app/api/stripe/webhook/route.ts — Stripe webhook event processing
+- Created src/app/api/stripe/portal/route.ts — Customer portal session creation
+- Fixed z-ai-web-dev-sdk causing Turbopack crashes (changed to dynamic import in ai-assistant.ts)
+- Fixed crypto import causing Turbopack crashes (replaced with pure JS hash)
+- Fixed dynamic import('./db') crashes in stripe.ts (changed to static import)
+- Updated middleware.ts to allow /api/stripe/webhook as public route
+- Started OpenBSP mock bridge (port 3001) — fully functional
+- Updated .env with Stripe, Embedding, OpenBSP configuration
+- Verified: ESLint 0 errors, TypeScript 0 errors
+- Verified: All 8 endpoints tested successfully end-to-end
+
+Stage Summary:
+- RAG pipeline: keyword matching → semantic embeddings (pgvector-ready)
+- 9 knowledge base articles indexed (71KB embedding file)
+- Chat response with RAG: ragUsed=true, ragEntries=2, responseTimeMs=1011
+- Stripe: checkout/webhook/portal endpoints ready (requires keys for production)
+- OpenBSP mock: full WhatsApp simulation with incoming message trigger
+- All modules compile clean with Turbopack

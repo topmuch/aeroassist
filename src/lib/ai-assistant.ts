@@ -13,7 +13,6 @@
  * 8. Return structured response with metadata
  */
 
-import ZAI from 'z-ai-web-dev-sdk';
 import { db } from './db';
 import { searchKnowledgeBase, detectCategory } from './rag';
 import logger, { logAIEvent } from './logger';
@@ -279,6 +278,7 @@ async function callGroq(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      const ZAI = (await import('z-ai-web-dev-sdk')).default;
       const zai = await ZAI.create();
 
       const messages = [
