@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
     const allUserMessages = await db.message.findMany({
       where: {
         conversationId: { in: conversationIds },
-        direction: "incoming",
+        direction: "inbound",
       },
       orderBy: { createdAt: "desc" },
     });

@@ -78,6 +78,36 @@ export default function UsersTab({
   const [newUserPhone, setNewUserPhone] = useState("");
   const [newUserRole, setNewUserRole] = useState("traveler");
   const [userCreating, setUserCreating] = useState(false);
+  const [editUser, setEditUser] = useState<ApiUser | null>(null);
+  const [editUserName, setEditUserName] = useState("");
+  const [editUserEmail, setEditUserEmail] = useState("");
+  const [editUserPhone, setEditUserPhone] = useState("");
+  const [editUserRole, setEditUserRole] = useState("");
+  const [userSaving, setUserSaving] = useState(false);
+
+  const openEditDialog = (user: ApiUser) => {
+    setEditUser(user);
+    setEditUserName(user.name);
+    setEditUserEmail(user.email);
+    setEditUserPhone(user.phone || "");
+    setEditUserRole(user.role);
+  };
+
+  const handleSaveUser = async () => {
+    if (!editUser || !editUserName || !editUserEmail) return;
+    setUserSaving(true);
+    try {
+      const res = await fetch("/api/users", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editUser.id, name: editUserName, email: editUserEmail, phone: editUserPhone || null, role: editUserRole }),
+      });
+      if (res.ok) {
+        setEditUser(null);
+        onFetchUsers();
+      }
+    } catch { /* silent */ } finally { setUserSaving(false); }
+  };
 
   return (
     <div className="space-y-6">
@@ -314,7 +344,7 @@ export default function UsersTab({
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => alert("Fonctionnalité de modification en cours de développement")}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEditDialog(user)}>
                               <Edit className="h-3.5 w-3.5" />
                               <span className="sr-only">Modifier</span>
                             </Button>
@@ -408,6 +438,50 @@ export default function UsersTab({
           </div>
         )}
       </div>
+
+      {/* Edit User Dialog */}
+      <Dialog open={!!editUser} onOpenChange={(open) => { if (!open) setEditUser(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Modifier l&apos;utilisateur</DialogTitle>
+            <DialogDescription>
+              Modifiez les informations de {editUser?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-user-name">Nom complet</Label>
+              <Input id="edit-user-name" value={editUserName} onChange={(e) => setEditUserName(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-user-email">Email</Label>
+              <Input id="edit-user-email" type="email" value={editUserEmail} onChange={(e) => setEditUserEmail(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-user-phone">Téléphone</Label>
+              <Input id="edit-user-phone" value={editUserPhone} onChange={(e) => setEditUserPhone(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Rôle</Label>
+              <Select value={editUserRole} onValueChange={setEditUserRole}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="superadmin">Super Admin</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="partner">Partenaire</SelectItem>
+                  <SelectItem value="traveler">Voyageur</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUser(null)}>Annuler</Button>
+            <Button disabled={userSaving || !editUserName || !editUserEmail} onClick={handleSaveUser}>
+              {userSaving ? "Enregistrement..." : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

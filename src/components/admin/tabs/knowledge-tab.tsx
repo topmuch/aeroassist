@@ -107,6 +107,10 @@ export default function KnowledgeTab({
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [importPdfName, setImportPdfName] = useState("");
+  const [editKbEntry, setEditKbEntry] = useState<{ id: string; title: string } | null>(null);
+  const [editKbTitle, setEditKbTitle] = useState("");
+  const [editKbContent, setEditKbContent] = useState("");
+  const [kbSaving, setKbSaving] = useState(false);
 
   const handleCreateKbArticle = async () => {
     if (!newKbTitle.trim() || !newKbContent.trim()) return;
@@ -651,7 +655,11 @@ export default function KnowledgeTab({
                               variant="ghost"
                               size="sm"
                               className="h-8 w-8 p-0"
-                              onClick={() => alert("Fonctionnalité de modification en cours de développement")}
+                              onClick={() => {
+                                setEditKbEntry(entry);
+                                setEditKbTitle(entry.title);
+                                setEditKbContent("");
+                              }}
                             >
                               <Edit className="h-3.5 w-3.5" />
                               <span className="sr-only">Modifier</span>
@@ -762,6 +770,45 @@ export default function KnowledgeTab({
           </div>
         )}
       </div>
+
+      {/* Edit KB Article Dialog */}
+      <Dialog open={!!editKbEntry} onOpenChange={(open) => { if (!open) setEditKbEntry(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Modifier l&apos;article</DialogTitle>
+            <DialogDescription>Modifiez le titre ou le contenu de l&apos;article.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-kb-title">Titre</Label>
+              <Input id="edit-kb-title" value={editKbTitle} onChange={(e) => setEditKbTitle(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-kb-content">Nouveau contenu (ajout)</Label>
+              <Textarea id="edit-kb-content" value={editKbContent} onChange={(e) => setEditKbContent(e.target.value)} placeholder="Contenu à ajouter à l'article..." rows={4} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditKbEntry(null)}>Annuler</Button>
+            <Button disabled={kbSaving} onClick={async () => {
+              if (!editKbEntry || !editKbTitle) return;
+              setKbSaving(true);
+              try {
+                const body: Record<string, string> = { id: editKbEntry.id, title: editKbTitle };
+                if (editKbContent.trim()) body.content = editKbContent;
+                const res = await fetch("/api/knowledge", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(body),
+                });
+                if (res.ok) { setEditKbEntry(null); onFetchKnowledge(); }
+              } catch { /* silent */ } finally { setKbSaving(false); }
+            }}>
+              {kbSaving ? "Enregistrement..." : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
