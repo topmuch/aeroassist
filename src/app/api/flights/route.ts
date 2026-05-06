@@ -83,7 +83,20 @@ function generateMockFlights() {
   ];
 
   const now = new Date();
-  const flights = [];
+  const flights: Array<{
+    id: string;
+    flightNumber: string;
+    airline: string;
+    departure: string;
+    arrival: string;
+    scheduledDep: Date;
+    scheduledArr: Date;
+    actualDep: Date | null;
+    actualArr: Date | null;
+    status: string;
+    gate: string;
+    terminal: string;
+  }> = [];
 
   for (let i = 0; i < 30; i++) {
     const airline = airlines[Math.floor(seededRandom(i * 10 + 1) * airlines.length)];

@@ -105,8 +105,8 @@ export async function POST(request: NextRequest) {
     // Dynamically import pdf-parse (Node.js only)
     let pdfData: { text: string; numpages: number; info?: Record<string, unknown> };
     try {
-      const pdfParse = (await import('pdf-parse')).default;
-      pdfData = await pdfParse(buffer);
+      const pdfParse = (await import('pdf-parse')) as unknown as { default: (buf: Buffer) => Promise<{ text: string; numpages: number; info?: Record<string, unknown> }> };
+      pdfData = await pdfParse.default(buffer);
     } catch (pdfError) {
       console.error(JSON.stringify({
         level: 'error',

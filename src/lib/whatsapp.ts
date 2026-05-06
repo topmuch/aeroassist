@@ -43,7 +43,7 @@ interface WhatsAppMessageResponse {
   }>;
 }
 
-interface InboundMessage {
+export interface InboundMessage {
   from: string;        // WhatsApp phone number (e.g., "33612345678")
   id: string;          // Message ID from WhatsApp
   type: string;        // "text", "image", "interactive", "location", etc.
@@ -385,12 +385,12 @@ export async function sendTemplateMessage(
 export function parseWebhookPayload(body: unknown): {
   messages: Array<InboundMessage & { contactName?: string; contactWaId?: string }>;
   statuses: Array<unknown>;
-  metadata?: { displayPhoneNumber: string; phoneNumberId: string };
+  metadata?: { display_phone_number: string; phone_number_id: string };
 } {
   const result = {
     messages: [] as Array<InboundMessage & { contactName?: string; contactWaId?: string }>,
     statuses: [] as Array<unknown>,
-    metadata: undefined as { displayPhoneNumber: string; phoneNumberId: string } | undefined,
+    metadata: undefined as { display_phone_number: string; phone_number_id: string } | undefined,
   };
 
   if (!body || typeof body !== 'object') return result;

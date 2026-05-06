@@ -19,6 +19,7 @@ import logger from '@/lib/logger';
 interface ServiceStatus {
   status: 'up' | 'down' | 'degraded';
   latencyMs?: number;
+  provider?: string;
   error?: string;
   details?: string;
 }

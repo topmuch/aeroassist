@@ -632,7 +632,7 @@ export async function POST(request: NextRequest) {
       'reservation_created',
       'escalation',
     ];
-    const analyticsEvents = [];
+    const analyticsEvents: Array<{ eventType: string; metadata: string | null; createdAt: Date }> = [];
     const epochNow = Date.now();
 
     // Generate events for the last 14 days

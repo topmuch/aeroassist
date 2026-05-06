@@ -1,14 +1,22 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plane, MessageCircle, QrCode } from "lucide-react";
+import { Plane, MessageCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { generateQRDataURL } from "@/lib/qr";
 
 interface CTASectionProps {
   onViewChange: (view: string) => void;
 }
 
 export default function CTASection({ onViewChange }: CTASectionProps) {
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+
+  useEffect(() => {
+    generateQRDataURL("https://wa.me/33700000000?text=Bonjour%20AeroAssist").then(setQrDataUrl);
+  }, []);
+
   return (
     <section id="cta" className="relative overflow-hidden">
       {/* Dark gradient background */}
@@ -64,17 +72,21 @@ export default function CTASection({ onViewChange }: CTASectionProps) {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="mt-10 flex flex-col sm:flex-row items-center gap-8"
           >
-            {/* QR Code Visual */}
+            {/* QR Code */}
             <div className="relative">
-              <div className="flex h-36 w-36 items-center justify-center rounded-2xl bg-white p-3 shadow-2xl shadow-black/30">
-                <div className="flex h-full w-full items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50">
-                  <div className="text-center">
-                    <QrCode className="size-12 text-gray-400 mx-auto mb-1" />
-                    <span className="text-[10px] font-medium text-gray-500">
-                      Scan me
-                    </span>
+              <div className="flex flex-col items-center justify-center rounded-xl bg-white p-4 shadow-2xl shadow-black/30">
+                {qrDataUrl ? (
+                  <img
+                    src={qrDataUrl}
+                    alt="Scanner pour WhatsApp"
+                    className="h-36 w-36 rounded-lg"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-36 w-36">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                   </div>
-                </div>
+                )}
+                <span className="mt-2 text-xs font-medium text-gray-500">Scanner pour nous contacter</span>
               </div>
               {/* Pulse ring */}
               <div className="absolute -inset-3 rounded-2xl border-2 border-[#25D366]/20 animate-pulse" />

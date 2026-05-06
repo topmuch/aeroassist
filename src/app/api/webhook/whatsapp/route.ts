@@ -194,7 +194,7 @@ function detectIntent(text: string): string {
 
 async function callAI(
   systemPrompt: string,
-  conversationHistory: Array<{ role: string; content: string }>,
+  conversationHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
   maxRetries = 2
 ): Promise<{ reply: string; confidence: number; model: string }> {
   let lastError = '';
@@ -494,8 +494,8 @@ async function processInboundMessage(
     select: { direction: true, content: true },
   });
 
-  const chatHistory = history.map((m) => ({
-    role: m.direction === 'inbound' ? 'user' : 'assistant',
+  const chatHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = history.map((m) => ({
+    role: m.direction === 'inbound' ? 'user' as const : 'assistant' as const,
     content: m.content,
   }));
 

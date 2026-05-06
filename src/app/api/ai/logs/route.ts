@@ -86,31 +86,39 @@ export async function GET(request: NextRequest) {
       db.message.count({ where }),
     ]);
 
-    // For each AI message, find the preceding user message
-    const logs = await Promise.all(
-      aiMessages.map(async (aiMsg) => {
-        // Find the last inbound message before this AI response in the same conversation
-        const userMsg = await db.message.findFirst({
-          where: {
-            conversationId: aiMsg.conversationId,
-            direction: 'inbound',
-            createdAt: { lte: aiMsg.createdAt },
-          },
-          orderBy: { createdAt: 'desc' },
-          select: { content: true, createdAt: true },
-        });
+    // Collect all conversation IDs for a single bulk query (fixes N+1)
+    const conversationIds = [...new Set(aiMessages.map((m) => m.conversationId))];
 
-        return {
-          id: aiMsg.id,
-          sessionId: aiMsg.conversationId,
-          userMessage: userMsg?.content || '—',
-          aiResponse: aiMsg.content,
-          intent: aiMsg.intent,
-          confidence: aiMsg.confidence,
-          timestamp: aiMsg.createdAt,
-        };
-      })
-    );
+    // Single bulk query for all user messages in those conversations
+    const allUserMessages = await db.message.findMany({
+      where: {
+        conversationId: { in: conversationIds },
+        direction: "incoming",
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Build a map: conversationId -> most recent user message before each AI message
+    const userMsgByConversation = new Map<string, { content: string; createdAt: Date }>();
+    for (const convId of conversationIds) {
+      const msgs = allUserMessages.filter((m) => m.conversationId === convId);
+      if (msgs.length > 0) {
+        userMsgByConversation.set(convId, { content: msgs[0].content, createdAt: msgs[0].createdAt });
+      }
+    }
+
+    const logs = aiMessages.map((aiMsg) => {
+      const userMsg = userMsgByConversation.get(aiMsg.conversationId);
+      return {
+        id: aiMsg.id,
+        sessionId: aiMsg.conversationId,
+        userMessage: userMsg?.content || "—",
+        aiResponse: aiMsg.content,
+        intent: aiMsg.intent || "unknown",
+        confidence: aiMsg.confidence || 0,
+        timestamp: aiMsg.createdAt.toISOString(),
+      };
+    });
 
     // Compute stats from the where clause
     const [intentStats, avgConfidence, totalLogs] = await Promise.all([
@@ -151,7 +159,7 @@ export async function GET(request: NextRequest) {
         },
         stats: {
           totalLogs,
-          avgConfidence: totalLogs._avg?.confidence || 0,
+          avgConfidence: avgConfidence._avg?.confidence || 0,
           intentBreakdown: intentStats.map((s) => ({
             intent: s.intent,
             count: s._count.id,

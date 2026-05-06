@@ -11,7 +11,7 @@ import logger, { logWebhookEvent, logSecurityEvent } from './logger';
 
 // ── Types ────────────────────────────────────────────────────────
 
-type WhatsAppProvider = 'openbsp' | 'meta';
+type WhatsAppProvider = 'openbsp' | 'meta' | 'none';
 
 interface OpenBSPPayload {
   chatId: string;       // WhatsApp JID: "33612345678@s.whatsapp.net"

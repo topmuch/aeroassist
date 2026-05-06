@@ -40,128 +40,16 @@ const QUICK_ACTIONS: QuickAction[] = [
 function generateFallbackResponse(message: string): string {
   const lower = message.toLowerCase()
 
-  if (/vol|flight|vols|décollage|atterrissage|retard|annulé/.test(lower)) {
-    return (
-      `✈️ **Informations sur vos vols**
-
-Voici l'état de vos vols aujourd'hui :
-
-🔹 **AF 1234 — Paris CDG → New York JFK**
-   • Terminal 2E | Porte K42
-   • Départ prévu : 14h35
-   • Statut : ✅ À l'heure
-
-🔹 **AF 5678 — Paris ORY → Londres LHR**
-   • Terminal 3 | Porte B12
-   • Départ prévu : 16h10
-   • Statut : ⚠️ Retard estimé 25 min
-
-🔹 **AF 9012 — Marrakech RAK → Paris CDG**
-   • Terminal 2A | Porte A08
-   • Arrivée prévue : 18h45
-   • Statut : ✅ En route
-
-Souhaitez-vous recevoir une notification en cas de changement ? Je peux aussi vous guider vers votre porte d'embarquement. 🗺️`
-    )
+  // Basic helpful responses without fake data
+  if (lower.includes("bonjour") || lower.includes("salut") || lower.includes("hello")) {
+    return "Bonjour ! 👋 Je suis AeroAssist, votre assistant IA pour l'aéroport. Comment puis-je vous aider aujourd'hui ?\n\nJe peux vous aider avec :\n• Information sur les vols\n• Restaurants et services\n• Transport et transferts\n• boutiques et shopping"
   }
 
-  if (/restaurant|manger|restauration|déjeuner|dîner|café/.test(lower)) {
-    return (
-      `🍽️ **Recommandations Restaurants**
-
-Voici les meilleures options disponibles à l'aéroport :
-
-**🍽️ Restaurants Gastronomiques**
-• **Le Chef's Table** — Terminal 2E, Hall L — À partir de 45€
-• **Sushi Master** — Terminal 2F, Niveau Arrivées — 20-40€
-
-**☕ Cafés & Bistros**
-• **Café Parisien** — Terminal 1, Niveau Départs — 8-18€
-• **Pret A Manger** — Toutes les zones transit — 6-12€
-
-Voulez-vous une réservation ou des directions ? 📍`
-    )
+  if (lower.includes("aide") || lower.includes("help")) {
+    return "Voici ce que je peux faire pour vous :\n\n✈️ **Vols** — Demandez-moi le statut d'un vol\n🍽️ **Restaurants** — Je peux recommander des restaurants\n🚕 **Transport** — Informations sur les taxis, bus et navettes\n🛍️ **Shopping** — Boutiques et duty-free\n\nEssayez de me poser une question spécifique !"
   }
 
-  if (/duty|shop|boutique|magasin|acheter|shopping|parfum/.test(lower)) {
-    return (
-      `🛍️ **Boutiques Duty-Free**
-
-Profitez de prix exclusifs sans taxes !
-
-**💄 Beauté & Parfums** — Sephora (T2E & T2F), MAC (T2A)
-**🍷 Spiritueux** — Nicolas (T2E), Fauchon (T2F)
-**⌚ Montres** — Longines (T2E), Hermès (T2F)
-**📱 Électronique** — Duty Free Tech (T2D) jusqu'à -20%
-
-💡 *Présentez votre carte d'embarquement pour des réductions supplémentaires !*`
-    )
-  }
-
-  if (/hôtel|hotel|hébergement|dormir|chambre/.test(lower)) {
-    return (
-      `🏨 **Hôtels & Hébergement**
-
-**🌟 Hôtels à l'aéroport**
-• **Hilton CDG** — Entre T2 et T3 — À partir de 140€/nuit — Navette 24h/24
-• **Pullman CDG** — Terminal 2, Hall M — À partir de 160€/nuit
-• **citizenM CDG** — Terminal 3 — À partir de 89€/nuit
-
-**💤 Capsules** — YOTELAIR (T2E) à partir de 45€/4h
-
-Puis-je vous aider à réserver ? 🛎️`
-    )
-  }
-
-  if (/vip|salon|lounge|business|privé/.test(lower)) {
-    return (
-      `👑 **Salons VIP**
-
-**🥂 Air France La Première** — T2E, Hall L (Accès billet Première)
-**🌟 Air France Business** — T2E, Hall K & L (Billet Business / Flying Blue Gold+)
-**🏛️ ADP Lounge** — T2E & 2F — Accès payant 40€/3h — Boissons, snacks, WiFi
-
-Voulez-vous réserver un accès ? ✨`
-    )
-  }
-
-  if (/transport|voiture|taxi|bus|navette|train|rer|parking/.test(lower)) {
-    return (
-      `🚗 **Options de Transport**
-
-**🚕 Taxi** — Paris centre : 53-65€ (jour) / 65-78€ (nuit)
-**🚌 RoissyBus** — Direct Opéra — 16,20€ — ~60 min
-**🚆 RER B** — Paris centre — 11,45€ — ~35 min
-**🅿️ Parking** — À partir de 24€/jour + navette gratuite
-
-Où souhaitez-vous aller ? 🗺️`
-    )
-  }
-
-  if (/aide|help|\?|information|comment/.test(lower)) {
-    return (
-      `❓ **Centre d'Aide AeroAssist**
-
-✈️ Vols — 🍽️ Restaurants — 🛍️ Duty-Free — 🏨 Hôtels
-🚗 Transport — 👑 Salons VIP — 📍 Navigation — 📋 Formalités
-
-💡 Conseils : « Mon vol AF1234 est à quelle porte ? » | « Meilleur café du T2E ? » | « Comment aller au RER ? »
-
-Comment puis-je vous aider ? 😊`
-    )
-  }
-
-  return (
-    `Merci pour votre message ! 🙏
-
-Je suis AeroAssist, votre assistant intelligent pour les aéroports Paris CDG et Orly.
-
-✈️ Suivre vos vols en temps réel | 🍽️ Trouver les meilleurs restaurants
-🛍️ Comparer les boutiques duty-free | 🏨 Réserver un hôtel ou une capsule
-🚗 Organiser votre transport | 👑 Accéder aux salons VIP
-
-N'hésitez pas à me poser votre question directement ou utiliser les boutons ci-dessous ! 🇫🇷🇬🇧`
-  )
+  return "Je suis désolé, je n'ai pas pu traiter votre demande pour le moment. Le service est temporairement indisponible.\n\nVous pouvez :\n• Réessayer dans quelques instants\n• Consulter les panneaux d'information à l'aéroport\n• Me poser une autre question"
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
@@ -329,22 +217,29 @@ function QuickActions({ onAction, disabled }: QuickActionsProps) {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export default function WhatsAppChat() {
+export default function AeroAssistChat() {
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const now = new Date()
-    const secondMsgTime = new Date(now.getTime() + 500)
+    const disclaimerTime = new Date(now.getTime() + 500)
+    const welcomeTime = new Date(now.getTime() + 1000)
     return [
       {
         id: generateId(),
-        content: '✈️ Bienvenue sur AeroAssist ! Je suis votre assistant aéroport intelligent propulsé par Groq.',
+        content: '🤖 Assistant intelligent — powered by AI',
         sender: 'assistant',
         timestamp: now,
       },
       {
         id: generateId(),
+        content: '✈️ Bienvenue ! Je suis AeroAssist, votre assistant IA pour l\'aéroport.',
+        sender: 'assistant',
+        timestamp: disclaimerTime,
+      },
+      {
+        id: generateId(),
         content: "Comment puis-je vous aider aujourd'hui ?",
         sender: 'assistant',
-        timestamp: secondMsgTime,
+        timestamp: welcomeTime,
       },
     ]
   })
@@ -352,7 +247,6 @@ export default function WhatsAppChat() {
   const [inputValue, setInputValue] = useState('')
   const [showQuickActions, setShowQuickActions] = useState(true)
   const [conversationId, setConversationId] = useState<string | null>(null)
-  const [useApi, setUseApi] = useState(true)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -386,47 +280,31 @@ export default function WhatsAppChat() {
       setShowQuickActions(false)
       setIsTyping(true)
 
-      if (useApi) {
-        // Call real Groq API via backend
-        fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: text.trim(),
-            conversationId: conversationId,
-            language: 'fr',
-          }),
-        })
-          .then((res) => res.json())
-          .then((data) => {
-            if (data.reply) {
-              if (data.conversationId && !conversationId) {
-                setConversationId(data.conversationId)
-              }
-              const assistantMessage: ChatMessage = {
-                id: generateId(),
-                content: data.reply,
-                sender: 'assistant',
-                timestamp: new Date(),
-              }
-              setMessages((prev) => [...prev, assistantMessage])
-            } else {
-              // API error - use fallback
-              setUseApi(false)
-              const fallback = generateFallbackResponse(text.trim())
-              const assistantMessage: ChatMessage = {
-                id: generateId(),
-                content: fallback,
-                sender: 'assistant',
-                timestamp: new Date(),
-              }
-              setMessages((prev) => [...prev, assistantMessage])
+      // Always try the API first; fall back per-message on error
+      fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text.trim(),
+          conversationId: conversationId,
+          language: 'fr',
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.reply) {
+            if (data.conversationId && !conversationId) {
+              setConversationId(data.conversationId)
             }
-            setIsTyping(false)
-          })
-          .catch(() => {
-            // Network error - use fallback
-            setUseApi(false)
+            const assistantMessage: ChatMessage = {
+              id: generateId(),
+              content: data.reply,
+              sender: 'assistant',
+              timestamp: new Date(),
+            }
+            setMessages((prev) => [...prev, assistantMessage])
+          } else {
+            // API returned no reply – use fallback for this message only
             const fallback = generateFallbackResponse(text.trim())
             const assistantMessage: ChatMessage = {
               id: generateId(),
@@ -435,25 +313,23 @@ export default function WhatsAppChat() {
               timestamp: new Date(),
             }
             setMessages((prev) => [...prev, assistantMessage])
-            setIsTyping(false)
-          })
-      } else {
-        // Fallback local responses
-        const typingDelay = 1000 + Math.random() * 1000
-        setTimeout(() => {
-          const response = generateFallbackResponse(text.trim())
+          }
+          setIsTyping(false)
+        })
+        .catch(() => {
+          // Network error – use fallback for this message only (next message will retry API)
+          const fallback = generateFallbackResponse(text.trim())
           const assistantMessage: ChatMessage = {
             id: generateId(),
-            content: response,
+            content: fallback,
             sender: 'assistant',
             timestamp: new Date(),
           }
           setMessages((prev) => [...prev, assistantMessage])
           setIsTyping(false)
-        }, typingDelay)
-      }
+        })
     },
-    [isTyping, conversationId, useApi]
+    [isTyping, conversationId]
   )
 
   const handleQuickAction = useCallback(
@@ -492,27 +368,11 @@ export default function WhatsAppChat() {
         </Avatar>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h1 className="font-bold text-[0.95rem] tracking-tight">AeroAssist</h1>
-            <Bot className="size-3.5 opacity-80" />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="relative flex size-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-300 opacity-75" />
-              <span className="relative inline-flex rounded-full size-2 bg-green-300" />
-            </span>
-            <span className="text-xs text-emerald-100">
-              En ligne · {useApi ? 'Groq IA' : 'Mode hors ligne'}
-            </span>
-          </div>
+          <h1 className="font-bold text-[0.95rem] tracking-tight">AeroAssist</h1>
+          <p className="text-xs text-emerald-100">Assistant IA Aéroport</p>
         </div>
 
-        <div className="flex items-center gap-0.5 opacity-60">
-          <div className="w-1 h-1.5 rounded-full bg-white" />
-          <div className="w-1 h-2.5 rounded-full bg-white" />
-          <div className="w-1 h-3.5 rounded-full bg-white" />
-          <div className="w-1 h-[1.125rem] rounded-full bg-white" />
-        </div>
+        <Bot className="size-5 opacity-70" />
       </header>
 
       {/* Chat Area */}
@@ -543,7 +403,7 @@ export default function WhatsAppChat() {
                 {isTyping && <TypingIndicator />}
               </AnimatePresence>
 
-              {showQuickActions && messages.length === 2 && (
+              {showQuickActions && messages.length === 3 && (
                 <QuickActions onAction={handleQuickAction} disabled={isTyping} />
               )}
             </div>
@@ -563,7 +423,7 @@ export default function WhatsAppChat() {
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={isTyping}
-          placeholder={isTyping ? 'AeroAssist écrit...' : 'Écrivez un message...'}
+          placeholder={isTyping ? "L'assistant écrit..." : 'Posez votre question...'}
           className="flex-1 h-10 rounded-full bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-sm focus-visible:ring-emerald-500/30 focus-visible:border-emerald-500 dark:focus-visible:ring-emerald-500/30"
           autoComplete="off"
         />

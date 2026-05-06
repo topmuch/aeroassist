@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Navbar, { type ViewType } from "@/components/landing/navbar";
 import HeroSection from "@/components/landing/hero-section";
@@ -8,7 +8,7 @@ import FeaturesSection from "@/components/landing/features-section";
 import HowItWorksSection from "@/components/landing/how-it-works-section";
 import FaqSection from "@/components/landing/faq-section";
 import CtaSection from "@/components/landing/cta-section";
-import WhatsAppChat from "@/components/chat/whatsapp-chat";
+import AeroAssistChat from "@/components/chat/aeroassist-chat";
 import AdminDashboard from "@/components/admin/admin-dashboard";
 import { Plane, Loader2 } from "lucide-react";
 
@@ -45,6 +45,16 @@ const pageVariants = {
 export default function Home() {
   const [currentView, setCurrentView] = useState<ViewType>("landing");
   const [mounted, setMounted] = useState(false);
+  const [adminAuthenticated, setAdminAuthenticated] = useState(false);
+
+  const handleAdminAuthenticated = useCallback(() => {
+    setAdminAuthenticated(true);
+  }, []);
+
+  const handleAdminLogout = useCallback(() => {
+    setAdminAuthenticated(false);
+    setCurrentView("landing");
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), 800);
@@ -58,7 +68,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       {currentView !== "admin" && (
-        <Navbar currentView={currentView} onViewChange={setCurrentView} />
+        <Navbar
+          currentView={currentView}
+          onViewChange={setCurrentView}
+          adminAuthenticated={adminAuthenticated}
+          onAdminAuthenticated={handleAdminAuthenticated}
+          onAdminLogout={handleAdminLogout}
+        />
       )}
 
       <AnimatePresence mode="wait">
@@ -72,11 +88,11 @@ export default function Home() {
             transition={{ duration: 0.4, ease: "easeInOut" }}
             className="pt-16"
           >
-            <HeroSection />
+            <HeroSection onViewChange={(v) => setCurrentView(v as ViewType)} />
             <FeaturesSection />
             <HowItWorksSection />
             <FaqSection />
-            <CtaSection />
+            <CtaSection onViewChange={(v) => setCurrentView(v as ViewType)} />
           </motion.main>
         )}
 
@@ -91,7 +107,7 @@ export default function Home() {
             className="pt-16"
           >
             <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 md:p-8 bg-gradient-to-br from-gray-50 via-emerald-50/30 to-teal-50/20 dark:from-[#060a13] dark:via-[#0a1020] dark:to-[#060a13]">
-              <WhatsAppChat />
+              <AeroAssistChat />
             </div>
           </motion.main>
         )}
@@ -106,7 +122,7 @@ export default function Home() {
             transition={{ duration: 0.4, ease: "easeInOut" }}
             className="h-screen overflow-hidden"
           >
-            <AdminDashboard />
+            <AdminDashboard onLogout={handleAdminLogout} />
           </motion.main>
         )}
       </AnimatePresence>

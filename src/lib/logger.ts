@@ -115,7 +115,7 @@ const logger = winston.createLogger({
 
 // ── Helper Functions ─────────────────────────────────────────────
 
-export function logWebhookEvent(direction: 'inbound' | 'outbound', data: Record<string, unknown>) {
+export function logWebhookEvent(direction: string, data: Record<string, unknown>) {
   logger.info(`whatsapp.webhook.${direction}`, {
     event: `whatsapp_${direction}`,
     ...data,

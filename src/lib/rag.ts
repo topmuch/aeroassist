@@ -88,18 +88,23 @@ export async function searchKnowledgeBase(
       })),
     ];
 
-    // If we have an intent/category hint, add category filter
+    // Build conditions array — keywords are ALWAYS required
+    const conditions: Record<string, unknown>[] = [];
+
+    if (searchConditions.length > 0) {
+      conditions.push({ OR: searchConditions });
+    }
+
+    // Category is an additional AND filter (not OR — fixes bypass issue)
+    if (categoryHint && categoryHint !== 'general') {
+      conditions.push({ category: categoryHint });
+    }
+
+    // Build the final where clause
     const whereClause: Record<string, unknown> = {
       status: 'published',
-      OR: searchConditions,
+      ...(conditions.length > 0 ? { AND: conditions } : {}),
     };
-
-    if (categoryHint) {
-      whereClause.OR = [
-        ...searchConditions,
-        { category: categoryHint },
-      ];
-    }
 
     const entries = await db.knowledgeBaseEntry.findMany({
       where: whereClause,

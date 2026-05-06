@@ -4,61 +4,31 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   MessageCircle,
   Users,
-  CheckCircle,
-  Euro,
-  Plus,
-  Search,
-  Edit,
-  Trash2,
-  Filter,
-  ChevronLeft,
-  ChevronRight,
   Settings,
-  Save,
   Plane,
-  Clock,
-  AlertTriangle,
-  Archive,
-  Eye,
-  Check,
-  X,
+  BarChart3,
+  Activity,
+  CreditCard,
+  FileText,
+  Zap,
+  Save,
+  Loader2,
+  CheckCircle,
   Crown,
   ShoppingBag,
   Building2,
   Car,
   Utensils,
-  Loader2,
-  TrendingUp,
-  TrendingDown,
-  Zap,
-  Globe,
-  Shield,
-  BarChart3,
-  Activity,
-  CreditCard,
-  FileText,
-  Bell,
-  ToggleLeft,
-  Info,
-  Upload,
-  Link,
-  FileUp,
-  AlertCircle,
-  Lock,
-  Scissors,
   Sun,
   Moon,
   Home,
-  Radio,
+  LogOut,
 } from "lucide-react";
 
 import { useTheme } from "next-themes";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Table,
@@ -71,13 +41,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -86,487 +49,46 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
+
+// ─── Shared Types ───────────────────────────────────────────────────────────
+import type {
+  ApiAnalytics,
+  ApiUser,
+  ApiReservation,
+  Module,
+  PaginationInfo,
+  HealthData,
+  AiLog,
+} from "./types";
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
-} from "@/components/ui/chart";
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-} from "recharts";
-import { ScrollArea } from "@/components/ui/scroll-area";
+  dayNames,
+  monthLabels,
+  formatRelativeTime,
+  intentLabelMap,
+} from "./helpers";
 
-// ─── API Types ─────────────────────────────────────────────────────────────
+// ─── Tab Components ─────────────────────────────────────────────────────────
+import OverviewTab from "./tabs/overview-tab";
+import UsersTab from "./tabs/users-tab";
+import KnowledgeTab from "./tabs/knowledge-tab";
+import AiConfigTab from "./tabs/ai-config-tab";
+import FlightsTab from "./tabs/flights-tab";
+import BillingTab from "./tabs/billing-tab";
+import WhatsAppConsoleTab from "./tabs/whatsapp-console-tab";
+import { LoadingSpinner } from "./helpers";
 
-interface ApiAnalyticsOverview {
-  totalConversations: number;
-  totalMessages: number;
-  activeUsers: number;
-  resolutionRate: number;
-  avgResponseTimeSeconds: number;
+// ─── Main Component ────────────────────────────────────────────────────────
+
+interface AdminDashboardProps {
+  onLogout: () => void;
 }
 
-interface ApiAnalytics {
-  overview: ApiAnalyticsOverview;
-  intentDistribution: Array<{ intent: string; count: number }>;
-  messagesPerDay: Array<{ date: string; count: number }>;
-}
-
-interface ApiUser {
-  id: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  role: string;
-  avatar: string | null;
-  language: string;
-  isVerified: boolean;
-  isActive: boolean;
-  lastLogin: string | null;
-  createdAt: string;
-  _count: { conversations: number; reservations: number };
-}
-
-interface ApiKnowledge {
-  id: string;
-  title: string;
-  content: string;
-  source: string | null;
-  category: string;
-  status: string;
-  version: number;
-  chunkCount: number;
-  ownerId: string | null;
-  publishedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  owner: { id: string; name: string; email: string } | null;
-}
-
-interface ApiReservation {
-  id: string;
-  userId: string | null;
-  type: string;
-  status: string;
-  reference: string;
-  details: string;
-  totalAmount: number;
-  currency: string;
-  paymentStatus: string;
-  paidAt: string | null;
-  createdAt: string;
-  user: { id: string; name: string; email: string; phone: string } | null;
-}
-
-interface ApiFlight {
-  id: string;
-  flightNumber: string;
-  airline: string;
-  departure: string;
-  arrival: string;
-  scheduledDep: string;
-  scheduledArr: string;
-  actualDep: string | null;
-  actualArr: string | null;
-  status: string;
-  gate: string | null;
-  terminal: string | null;
-}
-
-interface Module {
-  id: string;
-  nom: string;
-  description: string;
-  icon: React.ReactNode;
-  statut: boolean;
-  utilisateurs: number;
-  config?: string;
-}
-
-interface PaginationInfo {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
-
-// ─── Chart Configs ─────────────────────────────────────────────────────────
-
-const messagesChartConfig = {
-  messages: {
-    label: "Messages",
-    color: "var(--chart-1)",
-  },
-};
-
-const intentChartConfig = {
-  count: {
-    label: "Requêtes",
-    color: "var(--chart-2)",
-  },
-};
-
-const revenueChartConfig = {
-  revenus: {
-    label: "Revenus (€)",
-    color: "var(--chart-3)",
-  },
-};
-
-// ─── Helpers ───────────────────────────────────────────────────────────────
-
-const intentLabelMap: Record<string, string> = {
-  flight_status: "Vols",
-  flight_info: "Vols",
-  restaurant_recommendation: "Restaurants",
-  restaurants: "Restaurants",
-  general_service: "Services",
-  services: "Services",
-  reservation: "Réservations",
-  reservations: "Réservations",
-  help: "Aide",
-  assistance: "Aide",
-  transport: "Transport",
-  shops: "Boutiques",
-  lost_baggage: "Bagages",
-  parking: "Parking",
-  shopping: "Shopping",
-};
-
-const dayNames = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
-const monthLabels = ["Janv", "Fév", "Mars", "Avr", "Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov", "Déc"];
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
-}
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-function formatTime(dateStr: string): string {
-  if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleTimeString("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatRelativeTime(dateStr: string): string {
-  if (!dateStr) return "";
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-  const diffMin = Math.floor(diffMs / 60000);
-  const diffHour = Math.floor(diffMs / 3600000);
-  const diffDay = Math.floor(diffMs / 86400000);
-  if (diffMin < 1) return "À l'instant";
-  if (diffMin < 60) return `Il y a ${diffMin} min`;
-  if (diffHour < 24) return `Il y a ${diffHour}h`;
-  if (diffDay < 7) return `Il y a ${diffDay}j`;
-  return formatDate(dateStr);
-}
-
-// ─── Badge Helpers ─────────────────────────────────────────────────────────
-
-function getRoleBadge(role: string) {
-  const map: Record<string, { label: string; className: string }> = {
-    superadmin: {
-      label: "Super Admin",
-      className:
-        "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
-    },
-    admin: {
-      label: "Admin",
-      className:
-        "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800",
-    },
-    partner: {
-      label: "Partenaire",
-      className:
-        "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
-    },
-    traveler: {
-      label: "Voyageur",
-      className:
-        "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-800",
-    },
-  };
-  const info = map[role] || {
-    label: role,
-    className: "bg-gray-100 text-gray-800 border-gray-200",
-  };
-  return (
-    <Badge variant="outline" className={info.className}>
-      {info.label}
-    </Badge>
-  );
-}
-
-function getCategoryBadge(categorie: string) {
-  const map: Record<string, { label: string; className: string }> = {
-    flights: {
-      label: "Vols",
-      className:
-        "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
-    },
-    restaurants: {
-      label: "Restaurants",
-      className:
-        "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800",
-    },
-    services: {
-      label: "Services",
-      className:
-        "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
-    },
-    shops: {
-      label: "Boutiques",
-      className:
-        "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800",
-    },
-    transport: {
-      label: "Transport",
-      className:
-        "bg-cyan-100 text-cyan-800 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-400 dark:border-cyan-800",
-    },
-    general: {
-      label: "Général",
-      className:
-        "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-800",
-    },
-  };
-  const info = map[categorie] || {
-    label: categorie,
-    className: "bg-gray-100 text-gray-800 border-gray-200",
-  };
-  return (
-    <Badge variant="outline" className={info.className}>
-      {info.label}
-    </Badge>
-  );
-}
-
-function getKnowledgeStatusBadge(statut: string) {
-  const map: Record<string, { label: string; className: string }> = {
-    draft: {
-      label: "Brouillon",
-      className:
-        "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800",
-    },
-    validated: {
-      label: "Validé",
-      className:
-        "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
-    },
-    published: {
-      label: "Publié",
-      className:
-        "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
-    },
-    archived: {
-      label: "Archivé",
-      className:
-        "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-900/30 dark:text-gray-500 dark:border-gray-800",
-    },
-  };
-  const info = map[statut] || {
-    label: statut,
-    className: "bg-gray-100 text-gray-800 border-gray-200",
-  };
-  return (
-    <Badge variant="outline" className={info.className}>
-      {info.label}
-    </Badge>
-  );
-}
-
-function getTransactionStatusBadge(statut: string) {
-  const map: Record<string, { label: string; className: string }> = {
-    paid: {
-      label: "Payé",
-      className:
-        "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
-    },
-    pending: {
-      label: "En attente",
-      className:
-        "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800",
-    },
-    refunded: {
-      label: "Remboursé",
-      className:
-        "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
-    },
-    cancelled: {
-      label: "Annulé",
-      className:
-        "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-900/30 dark:text-gray-500 dark:border-gray-800",
-    },
-  };
-  const info = map[statut] || {
-    label: statut,
-    className: "bg-gray-100 text-gray-800 border-gray-200",
-  };
-  return (
-    <Badge variant="outline" className={info.className}>
-      {info.label}
-    </Badge>
-  );
-}
-
-function getTransactionTypeBadge(type: string) {
-  const map: Record<string, { label: string; className: string }> = {
-    vip_lounge: {
-      label: "VIP",
-      className:
-        "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
-    },
-    hotel: {
-      label: "Hôtel",
-      className:
-        "bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800",
-    },
-    car_rental: {
-      label: "Voiture",
-      className:
-        "bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900/30 dark:text-teal-400 dark:border-teal-800",
-    },
-    duty_free: {
-      label: "Duty-Free",
-      className:
-        "bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-900/30 dark:text-pink-400 dark:border-pink-800",
-    },
-    VIP: {
-      label: "VIP",
-      className:
-        "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
-    },
-    "Hôtel": {
-      label: "Hôtel",
-      className:
-        "bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800",
-    },
-    Voiture: {
-      label: "Voiture",
-      className:
-        "bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900/30 dark:text-teal-400 dark:border-teal-800",
-    },
-    "Duty-Free": {
-      label: "Duty-Free",
-      className:
-        "bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-900/30 dark:text-pink-400 dark:border-pink-800",
-    },
-  };
-  const info = map[type] || {
-    label: type.replace(/_/g, " "),
-    className: "bg-gray-100 text-gray-800 border-gray-200",
-  };
-  return (
-    <Badge variant="outline" className={info.className}>
-      {info.label}
-    </Badge>
-  );
-}
-
-function getFlightStatusBadge(statut: string) {
-  const map: Record<string, { label: string; className: string }> = {
-    scheduled: {
-      label: "Programmé",
-      className:
-        "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800/30 dark:text-gray-400 dark:border-gray-700",
-    },
-    boarding: {
-      label: "Embarquement",
-      className:
-        "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
-    },
-    delayed: {
-      label: "Retardé",
-      className:
-        "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800",
-    },
-    cancelled: {
-      label: "Annulé",
-      className:
-        "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
-    },
-    departed: {
-      label: "Décollé",
-      className:
-        "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
-    },
-    arrived: {
-      label: "Arrivé",
-      className:
-        "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-500 dark:border-green-800",
-    },
-  };
-  const info = map[statut] || {
-    label: statut,
-    className: "bg-gray-100 text-gray-800 border-gray-200",
-  };
-  return (
-    <Badge variant="outline" className={info.className}>
-      {info.label}
-    </Badge>
-  );
-}
-
-// ─── Loading Spinner ──────────────────────────────────────────────────────
-
-function LoadingSpinner({ text = "Chargement..." }: { text?: string }) {
-  return (
-    <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
-      <Loader2 className="h-5 w-5 animate-spin" />
-      <span className="text-sm">{text}</span>
-    </div>
-  );
-}
-
-function StatusBadge({ status, labelConnected = "Opérationnel", labelOffline = "Hors ligne" }: {
-  status?: string;
-  labelConnected?: string;
-  labelOffline?: string;
-}) {
-  const statusClasses = status === "up"
-    ? "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800"
-    : status === "degraded"
-      ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800"
-      : "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800";
-
-  const StatusIcon = status === "up" ? CheckCircle : status === "degraded" ? AlertTriangle : AlertCircle;
-  const label = status === "up" ? labelConnected : status === "degraded" ? "Dégradé" : labelOffline;
-
-  return (
-    <Badge className={statusClasses}>
-      <StatusIcon className="h-3 w-3 mr-1" />
-      {label}
-    </Badge>
-  );
-}
-
-// ─── Main Component ──────────────────────────────────────────────────────
-
-export default function AdminDashboard() {
+export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState("overview");
 
   // ─── Analytics state (Overview tab) ─────────────────────────────────────
@@ -585,16 +107,10 @@ export default function AdminDashboard() {
   const [userSearch, setUserSearch] = useState("");
   const [userRoleFilter, setUserRoleFilter] = useState("all");
   const [userPage, setUserPage] = useState(1);
-  const [userDialogOpen, setUserDialogOpen] = useState(false);
-  const [newUserName, setNewUserName] = useState("");
-  const [newUserEmail, setNewUserEmail] = useState("");
-  const [newUserPhone, setNewUserPhone] = useState("");
-  const [newUserRole, setNewUserRole] = useState("traveler");
-  const [userCreating, setUserCreating] = useState(false);
   const usersPerPage = 8;
 
   // ─── Knowledge state ────────────────────────────────────────────────────
-  const [knowledge, setKnowledge] = useState<ApiKnowledge[]>([]);
+  const [knowledge, setKnowledge] = useState<import("./types").ApiKnowledge[]>([]);
   const [knowledgeLoading, setKnowledgeLoading] = useState(true);
   const [knowledgePagination, setKnowledgePagination] = useState<PaginationInfo>({
     page: 1,
@@ -606,15 +122,9 @@ export default function AdminDashboard() {
   const [kbCategoryFilter, setKbCategoryFilter] = useState("all");
   const [kbStatusFilter, setKbStatusFilter] = useState("all");
   const [kbPage, setKbPage] = useState(1);
-  const [kbDialogOpen, setKbDialogOpen] = useState(false);
-  const [newKbTitle, setNewKbTitle] = useState("");
-  const [newKbCategory, setNewKbCategory] = useState("general");
-  const [newKbStatus, setNewKbStatus] = useState("draft");
-  const [newKbContent, setNewKbContent] = useState("");
-  const [kbCreating, setKbCreating] = useState(false);
   const kbPerPage = 10;
 
-  // ─── AI Config state (local only) ───────────────────────────────────────
+  // ─── AI Config state ─────────────────────────────────────────────────────
   const [systemPrompt, setSystemPrompt] = useState(
     "Tu es AeroAssist, un assistant virtuel intelligent pour les aéroports de Paris (CDG et ORY). Tu aides les voyageurs en français, anglais, espagnol et allemand. Tu fournis des informations sur les vols, les services aéroportuaires, les restaurants, les boutiques, le transport et les réservations. Sois toujours poli, concis et précis. Si tu n'es pas sûr, oriente le voyageur vers le comptoir d'information le plus proche."
   );
@@ -626,17 +136,10 @@ export default function AdminDashboard() {
   const [fallbackEnabled, setFallbackEnabled] = useState(true);
   const [selectedModel, setSelectedModel] = useState("llama-3.3-70b-versatile");
   const [aiConfigSaved, setAiConfigSaved] = useState(false);
+  const [aiConfigLoading, setAiConfigLoading] = useState(false);
 
   // AI Logs state
-  const [aiLogs, setAiLogs] = useState<Array<{
-    id: string;
-    sessionId: string;
-    userMessage: string;
-    aiResponse: string;
-    intent: string;
-    confidence: number;
-    timestamp: string;
-  }>>([]);
+  const [aiLogs, setAiLogs] = useState<AiLog[]>([]);
   const [aiLogsLoading, setAiLogsLoading] = useState(false);
   const [aiLogsTotal, setAiLogsTotal] = useState(0);
   const [aiLogsPage, setAiLogsPage] = useState(1);
@@ -657,7 +160,7 @@ export default function AdminDashboard() {
   const [moduleConfigSaved, setModuleConfigSaved] = useState(false);
 
   // ─── Flights state ──────────────────────────────────────────────────────
-  const [flights, setFlights] = useState<ApiFlight[]>([]);
+  const [flights, setFlights] = useState<import("./types").ApiFlight[]>([]);
   const [flightsLoading, setFlightsLoading] = useState(true);
   const [flightFilter, setFlightFilter] = useState("all");
   const [flightSearch, setFlightSearch] = useState("");
@@ -677,61 +180,25 @@ export default function AdminDashboard() {
   const billingPerPage = 10;
   const [realBillingStats, setRealBillingStats] = useState<{ total: number; paid: number; pending: number; refunded: number } | null>(null);
 
-  // ─── KB Import state ────────────────────────────────────────────────────
-  const [kbImportUrlOpen, setKbImportUrlOpen] = useState(false);
-  const [kbImportPdfOpen, setKbImportPdfOpen] = useState(false);
-  const [importUrl, setImportUrl] = useState("");
-  const [importUrlCategory, setImportUrlCategory] = useState("general");
-  const [importUrlStatus, setImportUrlStatus] = useState<
-    "idle" | "loading" | "success" | "error"
-  >("idle");
-  const [importPdfStatus, setImportPdfStatus] = useState<
-    "idle" | "loading" | "success" | "error"
-  >("idle");
-  const [importPdfName, setImportPdfName] = useState("");
-  const [importResultInfo, setImportResultInfo] = useState("");
-
   // ─── WhatsApp Console state ─────────────────────────────────────────────
-  const [healthData, setHealthData] = useState<{
-    status: string;
-    services: {
-      database: { status: string; latencyMs: number; details: string; error: string };
-      ai: { status: string; latencyMs: number; details: string; error: string };
-      openbsp: { status: string; latencyMs: number; details: string; error: string };
-      whatsapp: { status: string; latencyMs: number; details: string; error: string };
-    };
-    system: {
-      nodeVersion: string;
-      platform: string;
-      memoryUsage: { rss: number; heapUsed: number; heapTotal: number };
-    };
-  } | null>(null);
+  const [healthData, setHealthData] = useState<HealthData | null>(null);
   const [healthLoading, setHealthLoading] = useState(true);
-  const [whatsappTemplates, setWhatsappTemplates] = useState<Array<{
-    id: string; name: string; displayName: string; category: string; language: string; status: string;
-  }>>([]);
-  const [whatsappContacts, setWhatsappContacts] = useState<Array<{
-    id: string; phoneNumber: string; pushName: string | null; language: string; isOptIn: boolean;
-    isBlacklisted: boolean; messageCount: number; lastSeenAt: string;
-  }>>([]);
+  const [whatsappTemplates, setWhatsappTemplates] = useState<import("./types").WhatsAppTemplate[]>([]);
+  const [whatsappContacts, setWhatsappContacts] = useState<import("./types").WhatsAppContact[]>([]);
 
-  // ─── Fetch: Analytics ───────────────────────────────────────────────────
+  // ─── Fetch functions ────────────────────────────────────────────────────
+
   const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
     try {
       const res = await fetch("/api/analytics");
       const data = await res.json();
-      if (data.success) {
-        setAnalytics(data.data);
-      }
-    } catch {
-      // Analytics fetch failed
-    } finally {
+      if (data.success) setAnalytics(data.data);
+    } catch { /* silent */ } finally {
       setAnalyticsLoading(false);
     }
   }, []);
 
-  // ─── Fetch: Users ───────────────────────────────────────────────────────
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
     try {
@@ -747,14 +214,11 @@ export default function AdminDashboard() {
         setUsers(data.data);
         setUserPagination(data.pagination);
       }
-    } catch {
-      // Users fetch failed
-    } finally {
+    } catch { /* silent */ } finally {
       setUsersLoading(false);
     }
   }, [userPage, userSearch, userRoleFilter, usersPerPage]);
 
-  // ─── Fetch: Billing Stats ──────────────────────────────────────────────
   const fetchBillingStats = useCallback(async () => {
     try {
       const res = await fetch("/api/billing/stats");
@@ -763,7 +227,6 @@ export default function AdminDashboard() {
     } catch { /* silent */ }
   }, []);
 
-  // ─── Fetch: Knowledge ───────────────────────────────────────────────────
   const fetchKnowledge = useCallback(async () => {
     setKnowledgeLoading(true);
     try {
@@ -772,8 +235,7 @@ export default function AdminDashboard() {
         limit: String(kbPerPage),
       });
       if (kbSearch) params.set("search", kbSearch);
-      if (kbCategoryFilter !== "all")
-        params.set("category", kbCategoryFilter);
+      if (kbCategoryFilter !== "all") params.set("category", kbCategoryFilter);
       if (kbStatusFilter !== "all") params.set("status", kbStatusFilter);
       const res = await fetch(`/api/knowledge?${params}`);
       const data = await res.json();
@@ -781,14 +243,11 @@ export default function AdminDashboard() {
         setKnowledge(data.data);
         setKnowledgePagination(data.pagination);
       }
-    } catch {
-      // Knowledge fetch failed
-    } finally {
+    } catch { /* silent */ } finally {
       setKnowledgeLoading(false);
     }
   }, [kbPage, kbSearch, kbCategoryFilter, kbStatusFilter, kbPerPage]);
 
-  // ─── Fetch: Modules ─────────────────────────────────────────────────────
   const fetchModules = useCallback(async () => {
     setModulesLoading(true);
     try {
@@ -805,19 +264,9 @@ export default function AdminDashboard() {
           Restaurants: <Utensils className="h-8 w-8" />,
         };
         const mapped: Module[] = data.data.map(
-          (m: {
-            id: string;
-            name: string;
-            description: string;
-            isActive: boolean;
-            config: string;
-          }) => {
+          (m: { id: string; name: string; description: string; isActive: boolean; config: string }) => {
             let cfg: Record<string, unknown> = {};
-            try {
-              cfg = m.config ? JSON.parse(m.config) : {};
-            } catch {
-              cfg = {};
-            }
+            try { cfg = m.config ? JSON.parse(m.config) : {}; } catch { cfg = {}; }
             return {
               id: m.id,
               nom: m.name,
@@ -831,14 +280,11 @@ export default function AdminDashboard() {
         );
         setModules(mapped);
       }
-    } catch {
-      // Modules fetch failed
-    } finally {
+    } catch { /* silent */ } finally {
       setModulesLoading(false);
     }
   }, []);
 
-  // ─── Fetch: Flights ─────────────────────────────────────────────────────
   const fetchFlights = useCallback(async () => {
     setFlightsLoading(true);
     try {
@@ -848,17 +294,12 @@ export default function AdminDashboard() {
       if (flightSearch) params.set("search", flightSearch);
       const res = await fetch(`/api/flights?${params}`);
       const data = await res.json();
-      if (data.success) {
-        setFlights(data.data);
-      }
-    } catch {
-      // Flights fetch failed
-    } finally {
+      if (data.success) setFlights(data.data);
+    } catch { /* silent */ } finally {
       setFlightsLoading(false);
     }
   }, [flightFilter, flightSearch]);
 
-  // ─── Fetch: Reservations ────────────────────────────────────────────────
   const fetchReservations = useCallback(async () => {
     setReservationsLoading(true);
     try {
@@ -874,48 +315,10 @@ export default function AdminDashboard() {
         setReservations(data.data);
         setReservationsPagination(data.pagination);
       }
-    } catch {
-      // Reservations fetch failed
-    } finally {
+    } catch { /* silent */ } finally {
       setReservationsLoading(false);
     }
   }, [billingPage, billingStatusFilter, billingTypeFilter, billingPerPage]);
-
-  // ─── Effects: Fetch all data on mount ───────────────────────────────────
-  useEffect(() => {
-    fetchAnalytics();
-  }, [fetchAnalytics]);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
-
-  useEffect(() => {
-    fetchKnowledge();
-  }, [fetchKnowledge]);
-
-  useEffect(() => {
-    fetchModules();
-  }, [fetchModules]);
-
-  useEffect(() => {
-    fetchFlights();
-  }, [fetchFlights]);
-
-  // Auto-refresh flights every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchFlights();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [fetchFlights]);
-
-  useEffect(() => {
-    fetchReservations();
-  }, [fetchReservations]);
-
-  // ─── AI Config state from API ────────────────────────────────────────────
-  const [aiConfigLoading, setAiConfigLoading] = useState(false);
 
   const fetchAiConfig = useCallback(async () => {
     setAiConfigLoading(true);
@@ -925,15 +328,11 @@ export default function AdminDashboard() {
       if (data.success && data.data) {
         if (data.data.model_name) setSelectedModel(data.data.model_name);
         if (data.data.system_prompt) setSystemPrompt(data.data.system_prompt);
-        if (data.data.confidence_threshold != null)
-          setConfidenceThreshold(data.data.confidence_threshold);
-        if (data.data.supported_languages)
-          setSelectedLanguages(data.data.supported_languages);
-        if (data.data.human_fallback_enabled !== undefined)
-          setFallbackEnabled(data.data.human_fallback_enabled);
+        if (data.data.confidence_threshold != null) setConfidenceThreshold(data.data.confidence_threshold);
+        if (data.data.supported_languages) setSelectedLanguages(data.data.supported_languages);
+        if (data.data.human_fallback_enabled !== undefined) setFallbackEnabled(data.data.human_fallback_enabled);
       }
     } catch {
-      // Fallback: try localStorage
       try {
         const saved = localStorage.getItem("aeroassist-ai-config");
         if (saved) {
@@ -950,11 +349,6 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchAiConfig();
-  }, [fetchAiConfig]);
-
-  // ─── Fetch: AI Logs ─────────────────────────────────────────────────────────
   const fetchAiLogs = useCallback(async (page?: number) => {
     setAiLogsLoading(true);
     try {
@@ -965,34 +359,22 @@ export default function AdminDashboard() {
         setAiLogs(data.data.logs);
         setAiLogsTotal(data.data.pagination.total);
       }
-    } catch {
-      // AI logs fetch failed
-    } finally {
+    } catch { /* silent */ } finally {
       setAiLogsLoading(false);
     }
   }, [aiLogsPage, aiLogsPerPage]);
 
-  useEffect(() => {
-    fetchAiLogs();
-  }, [fetchAiLogs]);
-
-  // ─── Fetch: Health (WhatsApp Console) ───────────────────────────────────
   const fetchHealth = useCallback(async () => {
     setHealthLoading(true);
     try {
       const res = await fetch("/api/health");
       const data = await res.json();
-      if (data) {
-        setHealthData(data);
-      }
-    } catch {
-      // Health fetch failed
-    } finally {
+      if (data) setHealthData(data);
+    } catch { /* silent */ } finally {
       setHealthLoading(false);
     }
   }, []);
 
-  // ─── Fetch: WhatsApp Templates & Contacts ──────────────────────────────
   const fetchWhatsappData = useCallback(async () => {
     try {
       const [tplRes, cntRes] = await Promise.all([
@@ -1003,28 +385,35 @@ export default function AdminDashboard() {
       const cntData = await cntRes.json();
       if (tplData.success) setWhatsappTemplates(tplData.data || []);
       if (cntData.success) setWhatsappContacts(cntData.data || []);
-    } catch {
-      // WhatsApp data fetch failed
-    }
+    } catch { /* silent */ }
   }, []);
 
+  // ─── Effects ────────────────────────────────────────────────────────────
+
+  useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  useEffect(() => { fetchKnowledge(); }, [fetchKnowledge]);
+  useEffect(() => { fetchModules(); }, [fetchModules]);
+  useEffect(() => { fetchFlights(); }, [fetchFlights]);
+  useEffect(() => {
+    const interval = setInterval(() => { fetchFlights(); }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchFlights]);
+  useEffect(() => { fetchReservations(); }, [fetchReservations]);
+  useEffect(() => { fetchAiConfig(); }, [fetchAiConfig]);
+  useEffect(() => { fetchAiLogs(); }, [fetchAiLogs]);
   useEffect(() => {
     fetchHealth();
     fetchWhatsappData();
     fetchBillingStats();
   }, [fetchHealth, fetchWhatsappData, fetchBillingStats]);
-
-  // Auto-refresh health every 30 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchHealth();
-    }, 30000);
+    const interval = setInterval(() => { fetchHealth(); }, 30000);
     return () => clearInterval(interval);
   }, [fetchHealth]);
 
   // ─── Derived Data ───────────────────────────────────────────────────────
 
-  // Chart data: messages per day (from analytics)
   const chartMessagesData = useMemo(() => {
     if (!analytics?.messagesPerDay) return [];
     return analytics.messagesPerDay.map((item) => ({
@@ -1033,7 +422,6 @@ export default function AdminDashboard() {
     }));
   }, [analytics]);
 
-  // Chart data: intent distribution with French labels
   const chartIntentData = useMemo(() => {
     if (!analytics?.intentDistribution) return [];
     return analytics.intentDistribution.map((item) => ({
@@ -1042,7 +430,6 @@ export default function AdminDashboard() {
     }));
   }, [analytics]);
 
-  // Recent activity derived from reservations + users
   const recentActivity = useMemo(() => {
     const activities: Array<{
       id: string;
@@ -1080,24 +467,14 @@ export default function AdminDashboard() {
     return activities.slice(0, 5);
   }, [reservations, users]);
 
-  // Billing summary stats derived from reservations
   const billingStats = useMemo(() => {
     const total = reservations.reduce((sum, r) => sum + r.totalAmount, 0);
-    const pending = reservations
-      .filter((r) => r.paymentStatus === "pending")
-      .reduce((sum, r) => sum + r.totalAmount, 0);
-    const paid = reservations
-      .filter((r) => r.paymentStatus === "paid")
-      .reduce((sum, r) => sum + r.totalAmount, 0);
-    const refunded = reservations
-      .filter(
-        (r) => r.paymentStatus === "refunded" || r.paymentStatus === "cancelled"
-      )
-      .reduce((sum, r) => sum + r.totalAmount, 0);
+    const pending = reservations.filter((r) => r.paymentStatus === "pending").reduce((sum, r) => sum + r.totalAmount, 0);
+    const paid = reservations.filter((r) => r.paymentStatus === "paid").reduce((sum, r) => sum + r.totalAmount, 0);
+    const refunded = reservations.filter((r) => r.paymentStatus === "refunded" || r.paymentStatus === "cancelled").reduce((sum, r) => sum + r.totalAmount, 0);
     return { total, pending, paid, refunded };
   }, [reservations]);
 
-  // Monthly revenue derived from paid reservations
   const monthlyRevenue = useMemo(() => {
     const map = new Map<string, number>();
     reservations.forEach((r) => {
@@ -1123,12 +500,7 @@ export default function AdminDashboard() {
       const mod = modules.find((m) => m.id === moduleId);
       if (!mod) return;
       const newStatus = !mod.statut;
-      // Optimistic update
-      setModules((prev) =>
-        prev.map((m) =>
-          m.id === moduleId ? { ...m, statut: newStatus } : m
-        )
-      );
+      setModules((prev) => prev.map((m) => m.id === moduleId ? { ...m, statut: newStatus } : m));
       try {
         const res = await fetch("/api/modules", {
           method: "PUT",
@@ -1136,39 +508,21 @@ export default function AdminDashboard() {
           body: JSON.stringify({ id: moduleId, isActive: newStatus }),
         });
         if (!res.ok) {
-          setModules((prev) =>
-            prev.map((m) =>
-              m.id === moduleId ? { ...m, statut: !newStatus } : m
-            )
-          );
+          setModules((prev) => prev.map((m) => m.id === moduleId ? { ...m, statut: !newStatus } : m));
         }
       } catch {
-        setModules((prev) =>
-          prev.map((m) =>
-            m.id === moduleId ? { ...m, statut: !newStatus } : m
-          )
-        );
+        setModules((prev) => prev.map((m) => m.id === moduleId ? { ...m, statut: !newStatus } : m));
       }
     },
     [modules]
   );
-
-  const toggleLanguage = (lang: string) => {
-    setSelectedLanguages((prev) =>
-      prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]
-    );
-  };
 
   const openModuleConfig = (mod: Module) => {
     setSelectedModule(mod);
     try {
       const cfg = mod.config ? JSON.parse(mod.config) : {};
       setModuleConfig({
-        pricing: String(
-          (cfg.pricing as { single?: number })?.single ||
-            (cfg.pricing as number) ||
-            45
-        ),
+        pricing: String((cfg.pricing as { single?: number })?.single || (cfg.pricing as number) || 45),
         partnerName: (cfg.partnerName as string) || mod.nom,
         maxCapacity: String((cfg.maxCapacity as number) || 100),
         description: (cfg.description as string) || mod.description,
@@ -1201,153 +555,15 @@ export default function AdminDashboard() {
       const res = await fetch("/api/modules", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: selectedModule.id,
-          config: configData,
-          isActive: selectedModule.statut,
-        }),
+        body: JSON.stringify({ id: selectedModule.id, config: configData, isActive: selectedModule.statut }),
       });
       if (res.ok) {
         setModuleConfigSaved(true);
-        // Update local module config
-        setModules((prev) =>
-          prev.map((m) =>
-            m.id === selectedModule.id ? { ...m, config: configData } : m
-          )
-        );
+        setModules((prev) => prev.map((m) => m.id === selectedModule.id ? { ...m, config: configData } : m));
         setTimeout(() => setModuleConfigOpen(false), 1200);
       }
-    } catch {
-      // Error handling silent - dialog stays open
-    } finally {
+    } catch { /* silent */ } finally {
       setModulesLoading(false);
-    }
-  };
-
-  const handleCreateKbArticle = async () => {
-    if (!newKbTitle.trim() || !newKbContent.trim()) return;
-    setKbCreating(true);
-    try {
-      const res = await fetch("/api/knowledge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: newKbTitle.trim(),
-          content: newKbContent.trim(),
-          category: newKbCategory,
-          status: newKbStatus,
-        }),
-      });
-      if (res.ok) {
-        setKbDialogOpen(false);
-        setNewKbTitle("");
-        setNewKbCategory("general");
-        setNewKbStatus("draft");
-        setNewKbContent("");
-        fetchKnowledge();
-      }
-    } catch {
-      // Error creating KB article
-    } finally {
-      setKbCreating(false);
-    }
-  };
-
-  const handleImportUrl = async () => {
-    if (!importUrl.trim()) return;
-    setImportUrlStatus("loading");
-    setImportResultInfo("");
-    try {
-      const res = await fetch("/api/knowledge/import-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: importUrl,
-          category: importUrlCategory,
-          status: "draft",
-        }),
-      });
-      const result = await res.json();
-      if (res.ok && result.success) {
-        const d = result.data;
-        setImportResultInfo(
-          `${d.chunkCount || 0} chunks extraits (${((d.contentLength || 0) / 1024).toFixed(1)} Ko)`
-        );
-        setImportUrlStatus("success");
-        fetchKnowledge();
-        setTimeout(() => {
-          setKbImportUrlOpen(false);
-          setImportUrl("");
-          setImportUrlStatus("idle");
-          setImportResultInfo("");
-        }, 2000);
-      } else {
-        setImportResultInfo(
-          result.error || "Erreur lors de l'import"
-        );
-        setImportUrlStatus("error");
-        setTimeout(() => {
-          setImportUrlStatus("idle");
-          setImportResultInfo("");
-        }, 3000);
-      }
-    } catch {
-      setImportUrlStatus("error");
-      setImportResultInfo("Erreur réseau");
-      setTimeout(() => {
-        setImportUrlStatus("idle");
-        setImportResultInfo("");
-      }, 3000);
-    }
-  };
-
-  const handleImportPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImportPdfName(file.name);
-    setImportPdfStatus("loading");
-    setImportResultInfo("");
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("category", "general");
-      formData.append("status", "draft");
-
-      const res = await fetch("/api/knowledge/import-pdf", {
-        method: "POST",
-        body: formData,
-      });
-      const result = await res.json();
-      if (res.ok && result.success) {
-        const d = result.data;
-        setImportResultInfo(
-          `${d.pages || 0} pages, ${d.chunkCount || 0} chunks créés`
-        );
-        setImportPdfStatus("success");
-        fetchKnowledge();
-        setTimeout(() => {
-          setKbImportPdfOpen(false);
-          setImportPdfName("");
-          setImportPdfStatus("idle");
-          setImportResultInfo("");
-        }, 2000);
-      } else {
-        setImportResultInfo(
-          result.error || "Erreur lors de l'import du PDF"
-        );
-        setImportPdfStatus("error");
-        setTimeout(() => {
-          setImportPdfStatus("idle");
-          setImportResultInfo("");
-        }, 3000);
-      }
-    } catch {
-      setImportPdfStatus("error");
-      setImportResultInfo("Erreur réseau");
-      setTimeout(() => {
-        setImportPdfStatus("idle");
-        setImportResultInfo("");
-      }, 3000);
     }
   };
 
@@ -1361,7 +577,6 @@ export default function AdminDashboard() {
       human_fallback_enabled: fallbackEnabled,
     };
     try {
-      // Save to API (real DB persistence)
       const res = await fetch("/api/ai/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -1372,7 +587,6 @@ export default function AdminDashboard() {
         setTimeout(() => setAiConfigSaved(false), 3000);
       }
     } catch {
-      // Fallback: save to localStorage
       try {
         localStorage.setItem("aeroassist-ai-config", JSON.stringify(config));
         setAiConfigSaved(true);
@@ -1404,7 +618,6 @@ export default function AdminDashboard() {
     <div className="flex h-full">
       {/* ═══════════════════════ SIDEBAR ═══════════════════════ */}
       <aside className="admin-sidebar w-64 shrink-0 hidden md:flex flex-col p-4">
-        {/* Logo */}
         <div className="flex items-center gap-3 mb-8 px-2">
           <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
             <Plane className="h-5 w-5 text-white" />
@@ -1414,8 +627,6 @@ export default function AdminDashboard() {
             <p className="text-xs text-white/60">Administration</p>
           </div>
         </div>
-
-        {/* Nav Items */}
         <nav className="flex-1 space-y-1">
           {navItems.map((item) => (
             <button
@@ -1428,15 +639,13 @@ export default function AdminDashboard() {
             </button>
           ))}
         </nav>
-
-        {/* Theme Toggle + Back Home */}
         <div className="border-t border-white/10 pt-3 mt-3 space-y-1">
           <a
             href="/"
             className="sidebar-nav-item w-full"
             onClick={(e) => {
               e.preventDefault();
-              window.location.href = "/";
+              onLogout();
             }}
           >
             <Home className="h-4 w-4" />
@@ -1446,12 +655,15 @@ export default function AdminDashboard() {
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             className="sidebar-nav-item w-full"
           >
-            {theme === "dark" ? (
-              <Sun className="h-4 w-4" />
-            ) : (
-              <Moon className="h-4 w-4" />
-            )}
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             <span>{theme === "dark" ? "Mode clair" : "Mode sombre"}</span>
+          </button>
+          <button
+            onClick={onLogout}
+            className="sidebar-nav-item w-full text-red-300 hover:text-red-200 hover:bg-red-500/10"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Déconnexion</span>
           </button>
         </div>
       </aside>
@@ -1478,7 +690,6 @@ export default function AdminDashboard() {
 
       {/* ═══════════════════════ MAIN CONTENT ═══════════════════════ */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
         <header className="admin-header px-6 py-3 flex items-center justify-between shrink-0">
           <h1 className="text-white font-bold text-sm md:text-base uppercase tracking-wider">
             AeroAssist | Tableau de Bord
@@ -1501,1670 +712,84 @@ export default function AdminDashboard() {
         {/* Tab Content */}
         <div className="flex-1 p-4 md:p-6 overflow-auto pb-20 md:pb-6">
           {activeTab === "overview" && (
-            <div className="space-y-6">
-              {analyticsLoading ? (
-                <LoadingSpinner text="Chargement des statistiques..." />
-              ) : (
-                <>
-                  {/* Stat Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="border-0 overflow-hidden bg-gradient-to-br from-rose-400 to-rose-600 shadow-lg shadow-rose-500/25">
-                      <CardContent className="p-5 relative">
-                        <div className="absolute top-0 left-0 w-1.5 h-full bg-white/30" />
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-white/80">
-                              Conversations
-                            </p>
-                            <p className="text-3xl font-bold mt-1 text-white">
-                              {analytics?.overview.totalConversations.toLocaleString("fr-FR") || "0"}
-                            </p>
-                            <div className="flex items-center gap-1 mt-2">
-                              <TrendingUp className="h-3.5 w-3.5 text-white/70" />
-                              <span className="text-xs text-white/70 font-medium">
-                                Données en direct
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm">
-                            <MessageCircle className="h-7 w-7 text-white" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="border-0 overflow-hidden bg-gradient-to-br from-violet-400 to-violet-600 shadow-lg shadow-violet-500/25">
-                      <CardContent className="p-5 relative">
-                        <div className="absolute top-0 left-0 w-1.5 h-full bg-white/30" />
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-white/80">
-                              Messages totaux
-                            </p>
-                            <p className="text-3xl font-bold mt-1 text-white">
-                              {analytics?.overview.totalMessages.toLocaleString("fr-FR") || "0"}
-                            </p>
-                            <div className="flex items-center gap-1 mt-2">
-                              <TrendingUp className="h-3.5 w-3.5 text-white/70" />
-                              <span className="text-xs text-white/70 font-medium">
-                                Toutes conversations
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm">
-                            <Users className="h-7 w-7 text-white" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="border-0 overflow-hidden bg-gradient-to-br from-orange-400 to-orange-600 shadow-lg shadow-orange-500/25">
-                      <CardContent className="p-5 relative">
-                        <div className="absolute top-0 left-0 w-1.5 h-full bg-white/30" />
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-white/80">
-                              Utilisateurs actifs
-                            </p>
-                            <p className="text-3xl font-bold mt-1 text-white">
-                              {analytics?.overview.activeUsers.toLocaleString("fr-FR") || "0"}
-                            </p>
-                            <div className="flex items-center gap-1 mt-2">
-                              <TrendingUp className="h-3.5 w-3.5 text-white/70" />
-                              <span className="text-xs text-white/70 font-medium">
-                                Utilisateurs inscrits
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm">
-                            <CheckCircle className="h-7 w-7 text-white" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="border-0 overflow-hidden bg-gradient-to-br from-green-400 to-green-600 shadow-lg shadow-green-500/25">
-                      <CardContent className="p-5 relative">
-                        <div className="absolute top-0 left-0 w-1.5 h-full bg-white/30" />
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-white/80">
-                              Taux de Résolution
-                            </p>
-                            <p className="text-3xl font-bold mt-1 text-white">
-                              {analytics?.overview.resolutionRate != null
-                                ? `${(analytics.overview.resolutionRate * 100).toFixed(1)}%`
-                                : "—"}
-                            </p>
-                            <div className="flex items-center gap-1 mt-2">
-                              {analytics?.overview.resolutionRate != null &&
-                              analytics.overview.resolutionRate >= 0.9 ? (
-                                <TrendingUp className="h-3.5 w-3.5 text-white/70" />
-                              ) : (
-                                <TrendingDown className="h-3.5 w-3.5 text-white/70" />
-                              )}
-                              <span className="text-xs text-white/70 font-medium">
-                                Temps moyen :{" "}
-                                {analytics?.overview.avgResponseTimeSeconds || 0}s
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm">
-                            <Euro className="h-7 w-7 text-white" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Charts Row */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Messages per day chart */}
-                    <Card className="premium-card">
-                      <CardHeader className="pb-2 border-b border-border/50">
-                        <CardTitle className="text-base">
-                          Messages par jour
-                        </CardTitle>
-                        <CardDescription>
-                          Derniers jours
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-4">
-                        {chartMessagesData.length === 0 ? (
-                          <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">
-                            Aucune donnée disponible
-                          </div>
-                        ) : (
-                          <ChartContainer
-                            config={messagesChartConfig}
-                            className="h-[250px] w-full"
-                          >
-                            <AreaChart
-                              data={chartMessagesData}
-                              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                            >
-                              <defs>
-                                <linearGradient
-                                  id="messagesGradient"
-                                  x1="0"
-                                  y1="0"
-                                  x2="0"
-                                  y2="1"
-                                >
-                                  <stop
-                                    offset="5%"
-                                    stopColor="var(--chart-1)"
-                                    stopOpacity={0.3}
-                                  />
-                                  <stop
-                                    offset="95%"
-                                    stopColor="var(--chart-1)"
-                                    stopOpacity={0}
-                                  />
-                                </linearGradient>
-                              </defs>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                              <XAxis
-                                dataKey="jour"
-                                tickLine={false}
-                                axisLine={false}
-                              />
-                              <YAxis tickLine={false} axisLine={false} />
-                              <ChartTooltip
-                                content={<ChartTooltipContent />}
-                              />
-                              <Area
-                                type="monotone"
-                                dataKey="messages"
-                                stroke="var(--chart-1)"
-                                fill="url(#messagesGradient)"
-                                strokeWidth={2}
-                              />
-                            </AreaChart>
-                          </ChartContainer>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    {/* Intent distribution chart */}
-                    <Card className="premium-card">
-                      <CardHeader className="pb-2 border-b border-border/50">
-                        <CardTitle className="text-base">
-                          Distribution des intentions
-                        </CardTitle>
-                        <CardDescription>
-                          Par catégorie de requête
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-4">
-                        {chartIntentData.length === 0 ? (
-                          <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">
-                            Aucune donnée disponible
-                          </div>
-                        ) : (
-                          <ChartContainer
-                            config={intentChartConfig}
-                            className="h-[250px] w-full"
-                          >
-                            <BarChart
-                              data={chartIntentData}
-                              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                              <XAxis
-                                dataKey="intent"
-                                tickLine={false}
-                                axisLine={false}
-                              />
-                              <YAxis tickLine={false} axisLine={false} />
-                              <ChartTooltip
-                                content={<ChartTooltipContent />}
-                              />
-                              <Bar
-                                dataKey="count"
-                                fill="var(--chart-2)"
-                                radius={[4, 4, 0, 0]}
-                              />
-                            </BarChart>
-                          </ChartContainer>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Recent Activity */}
-                  <Card className="premium-card">
-                    <CardHeader className="border-b border-border/50">
-                      <CardTitle className="text-base">Activité récente</CardTitle>
-                      <CardDescription>
-                        Dernières actions sur la plateforme
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {recentActivity.length === 0 ? (
-                        <div className="text-center py-6 text-muted-foreground text-sm">
-                          Aucune activité récente
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {recentActivity.map((activity) => (
-                            <div
-                              key={activity.id}
-                              className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0"
-                            >
-                              <div className="flex items-center justify-center h-9 w-9 rounded-full bg-muted shrink-0 mt-0.5">
-                                <Activity className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className="text-sm font-medium truncate">
-                                    {activity.action}
-                                  </p>
-                                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                    {activity.timestamp}
-                                  </span>
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                  {activity.utilisateur}
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  {activity.detail}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </>
-              )}
-            </div>
+            <OverviewTab
+              analytics={analytics}
+              loading={analyticsLoading}
+              chartMessagesData={chartMessagesData}
+              chartIntentData={chartIntentData}
+              recentActivity={recentActivity}
+            />
           )}
           {activeTab === "users" && (
-            <div className="space-y-6">
-              <div className="space-y-4">
-                {/* Search & Filters */}
-                <Card className="premium-card">
-                  <CardContent className="p-4">
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Rechercher par nom ou email..."
-                          value={userSearch}
-                          onChange={(e) => {
-                            setUserSearch(e.target.value);
-                            setUserPage(1);
-                          }}
-                          className="pl-9"
-                        />
-                      </div>
-                      <Select
-                        value={userRoleFilter}
-                        onValueChange={(v) => {
-                          setUserRoleFilter(v);
-                          setUserPage(1);
-                        }}
-                      >
-                        <SelectTrigger className="w-full sm:w-[180px]">
-                          <Filter className="h-4 w-4 mr-1" />
-                          <SelectValue placeholder="Filtrer par rôle" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Tous les rôles</SelectItem>
-                          <SelectItem value="superadmin">Super Admin</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="partner">Partenaire</SelectItem>
-                          <SelectItem value="traveler">Voyageur</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
-                        <DialogTrigger asChild>
-                          <Button onClick={() => {
-                            setNewUserName("");
-                            setNewUserEmail("");
-                            setNewUserPhone("");
-                            setNewUserRole("traveler");
-                          }}>
-                            <Plus className="h-4 w-4 mr-1.5" />
-                            Ajouter un utilisateur
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Ajouter un utilisateur</DialogTitle>
-                            <DialogDescription>
-                              Remplissez les informations du nouvel utilisateur.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                              <Label htmlFor="user-name">Nom complet</Label>
-                              <Input
-                                id="user-name"
-                                value={newUserName}
-                                onChange={(e) => setNewUserName(e.target.value)}
-                                placeholder="Ex: Jean Dupont"
-                              />
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="user-email">Email</Label>
-                              <Input
-                                id="user-email"
-                                type="email"
-                                value={newUserEmail}
-                                onChange={(e) => setNewUserEmail(e.target.value)}
-                                placeholder="Ex: jean.dupont@email.fr"
-                              />
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="user-phone">Téléphone</Label>
-                              <Input
-                                id="user-phone"
-                                value={newUserPhone}
-                                onChange={(e) => setNewUserPhone(e.target.value)}
-                                placeholder="Ex: +33 6 12 34 56 78"
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="grid gap-2">
-                                <Label>Rôle</Label>
-                                <Select value={newUserRole} onValueChange={setNewUserRole}>
-                                  <SelectTrigger className="w-full">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="superadmin">
-                                      Super Admin
-                                    </SelectItem>
-                                    <SelectItem value="admin">Admin</SelectItem>
-                                    <SelectItem value="partner">
-                                      Partenaire
-                                    </SelectItem>
-                                    <SelectItem value="traveler">
-                                      Voyageur
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="grid gap-2">
-                                <Label>Langue</Label>
-                                <Select defaultValue="français">
-                                  <SelectTrigger className="w-full">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="français">
-                                      Français
-                                    </SelectItem>
-                                    <SelectItem value="anglais">
-                                      Anglais
-                                    </SelectItem>
-                                    <SelectItem value="espagnol">
-                                      Espagnol
-                                    </SelectItem>
-                                    <SelectItem value="allemand">
-                                      Allemand
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button
-                              variant="outline"
-                              onClick={() => setUserDialogOpen(false)}
-                            >
-                              Annuler
-                            </Button>
-                            <Button disabled={userCreating} onClick={async () => {
-                              if (!newUserName || !newUserEmail) return;
-                              setUserCreating(true);
-                              try {
-                                const res = await fetch("/api/users", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ name: newUserName, email: newUserEmail, phone: newUserPhone || null, role: newUserRole, language: "fr" }),
-                                });
-                                if (res.ok) {
-                                  setUserDialogOpen(false);
-                                  setNewUserName("");
-                                  setNewUserEmail("");
-                                  setNewUserPhone("");
-                                  setNewUserRole("traveler");
-                                  fetchUsers();
-                                }
-                              } catch { /* silent */ } finally { setUserCreating(false); }
-                            }}>
-                              {userCreating ? "Création..." : "Créer l&apos;utilisateur"}
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Users Table */}
-                <Card className="premium-card">
-                  <CardContent className="p-0">
-                    {usersLoading ? (
-                      <LoadingSpinner text="Chargement des utilisateurs..." />
-                    ) : (
-                      <div className="max-h-[500px] overflow-y-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Nom</TableHead>
-                              <TableHead className="hidden md:table-cell">
-                                Email
-                              </TableHead>
-                              <TableHead className="hidden lg:table-cell">
-                                Téléphone
-                              </TableHead>
-                              <TableHead>Rôle</TableHead>
-                              <TableHead>Statut</TableHead>
-                              <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {users.map((user) => (
-                              <TableRow key={user.id}>
-                                <TableCell className="font-medium">
-                                  {user.name}
-                                </TableCell>
-                                <TableCell className="hidden md:table-cell text-muted-foreground">
-                                  {user.email}
-                                </TableCell>
-                                <TableCell className="hidden lg:table-cell text-muted-foreground">
-                                  {user.phone || "—"}
-                                </TableCell>
-                                <TableCell>{getRoleBadge(user.role)}</TableCell>
-                                <TableCell>
-                                  <Switch
-                                    checked={user.isActive}
-                                    aria-label={`Statut de ${user.name}`}
-                                    onCheckedChange={async (checked) => {
-                                      // Optimistic update
-                                      setUsers((prev) =>
-                                        prev.map((u) =>
-                                          u.id === user.id
-                                            ? { ...u, isActive: checked }
-                                            : u
-                                        )
-                                      );
-                                      try {
-                                        await fetch("/api/users", {
-                                          method: "PATCH",
-                                          headers: { "Content-Type": "application/json" },
-                                          body: JSON.stringify({ id: user.id, isActive: checked }),
-                                        });
-                                      } catch {
-                                        // Revert on failure
-                                        setUsers((prev) =>
-                                          prev.map((u) =>
-                                            u.id === user.id
-                                              ? { ...u, isActive: !checked }
-                                              : u
-                                          )
-                                        );
-                                      }
-                                    }}
-                                  />
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => alert("Fonctionnalité de modification en cours de développement")}>
-                                      <Edit className="h-3.5 w-3.5" />
-                                      <span className="sr-only">Modifier</span>
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0 text-red-500 hover:text-red-600"
-                                      onClick={() => {
-                                        if (confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) {
-                                          fetch("/api/users", {
-                                            method: "DELETE",
-                                            headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify({ id: user.id }),
-                                          }).then((res) => { if (res.ok) fetchUsers(); });
-                                        }
-                                      }}
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                      <span className="sr-only">Supprimer</span>
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                            {users.length === 0 && (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={6}
-                                  className="text-center py-8 text-muted-foreground"
-                                >
-                                  Aucun utilisateur trouvé
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Pagination */}
-                {userPagination.totalPages > 1 && (
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                      {userPagination.total} utilisateur(s) &middot; Page{" "}
-                      {userPage} sur {userPagination.totalPages}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={userPage <= 1}
-                        onClick={() => setUserPage((p) => p - 1)}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      {Array.from(
-                        { length: Math.min(userPagination.totalPages, 5) },
-                        (_, i) => {
-                          const pageNum = Math.max(
-                            1,
-                            Math.min(
-                              userPage - 2,
-                              userPagination.totalPages - 4
-                            )
-                          ) + i;
-                          if (pageNum > userPagination.totalPages) return null;
-                          return (
-                            <Button
-                              key={pageNum}
-                              variant={userPage === pageNum ? "default" : "outline"}
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => setUserPage(pageNum)}
-                            >
-                              {pageNum}
-                            </Button>
-                          );
-                        }
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={userPage >= userPagination.totalPages}
-                        onClick={() => setUserPage((p) => p + 1)}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-            </div>
+            <UsersTab
+              users={users}
+              loading={usersLoading}
+              pagination={userPagination}
+              search={userSearch}
+              setSearch={setUserSearch}
+              roleFilter={userRoleFilter}
+              setRoleFilter={setUserRoleFilter}
+              page={userPage}
+              setPage={setUserPage}
+              onFetchUsers={fetchUsers}
+              onSetUsers={setUsers}
+            />
           )}
           {activeTab === "knowledge" && (
-            <div className="space-y-6">
-              <div className="space-y-4">
-                {/* Search & Filters */}
-                <Card className="premium-card">
-                  <CardContent className="p-4">
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Rechercher un article..."
-                          value={kbSearch}
-                          onChange={(e) => {
-                            setKbSearch(e.target.value);
-                            setKbPage(1);
-                          }}
-                          className="pl-9"
-                        />
-                      </div>
-                      <Select
-                        value={kbCategoryFilter}
-                        onValueChange={(v) => {
-                          setKbCategoryFilter(v);
-                          setKbPage(1);
-                        }}
-                      >
-                        <SelectTrigger className="w-full sm:w-[170px]">
-                          <Filter className="h-4 w-4 mr-1" />
-                          <SelectValue placeholder="Catégorie" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">
-                            Toutes les catégories
-                          </SelectItem>
-                          <SelectItem value="flights">Vols</SelectItem>
-                          <SelectItem value="restaurants">Restaurants</SelectItem>
-                          <SelectItem value="services">Services</SelectItem>
-                          <SelectItem value="shops">Boutiques</SelectItem>
-                          <SelectItem value="transport">Transport</SelectItem>
-                          <SelectItem value="general">Général</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select
-                        value={kbStatusFilter}
-                        onValueChange={(v) => {
-                          setKbStatusFilter(v);
-                          setKbPage(1);
-                        }}
-                      >
-                        <SelectTrigger className="w-full sm:w-[150px]">
-                          <SelectValue placeholder="Statut" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Tous les statuts</SelectItem>
-                          <SelectItem value="draft">Brouillon</SelectItem>
-                          <SelectItem value="validated">Validé</SelectItem>
-                          <SelectItem value="published">Publié</SelectItem>
-                          <SelectItem value="archived">Archivé</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Dialog open={kbImportUrlOpen} onOpenChange={setKbImportUrlOpen}>
-                        <DialogTrigger asChild>
-                          <Button variant="outline">
-                            <Link className="h-4 w-4 mr-1.5" />
-                            Importer par URL
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                              <Link className="h-5 w-5 text-emerald-600" />
-                              Importer depuis une URL
-                            </DialogTitle>
-                            <DialogDescription>
-                              Collez l&apos;URL d&apos;une page web (site officiel, partenaire, etc.). Le contenu sera automatiquement parsé et chunké par le pipeline RAG.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                              <Label htmlFor="import-url">URL source</Label>
-                              <Input
-                                id="import-url"
-                                placeholder="https://www.aeroportsdeparis.fr/..."
-                                value={importUrl}
-                                onChange={(e) => setImportUrl(e.target.value)}
-                                disabled={importUrlStatus === "loading"}
-                              />
-                              <p className="text-xs text-muted-foreground">
-                                Supports : pages HTML, articles, API REST. Le scraping respecte robots.txt.
-                              </p>
-                            </div>
-                            <div className="grid gap-2">
-                              <Label>Catégorie</Label>
-                              <Select value={importUrlCategory} onValueChange={setImportUrlCategory}>
-                                <SelectTrigger className="w-full">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="flights">Vols</SelectItem>
-                                  <SelectItem value="restaurants">Restaurants</SelectItem>
-                                  <SelectItem value="services">Services</SelectItem>
-                                  <SelectItem value="shops">Boutiques</SelectItem>
-                                  <SelectItem value="transport">Transport</SelectItem>
-                                  <SelectItem value="general">Général</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            {importUrlStatus === "loading" && (
-                              <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                <span className="text-sm">Extraction et traitement en cours...</span>
-                              </div>
-                            )}
-                            {importUrlStatus === "success" && (
-                              <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300">
-                                <CheckCircle className="h-4 w-4" />
-                                <div className="text-sm">
-                                  <p>Contenu importé avec succès !</p>
-                                  {importResultInfo && (
-                                    <p className="text-xs mt-0.5 opacity-80">{importResultInfo}</p>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                            {importUrlStatus === "error" && (
-                              <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300">
-                                <AlertCircle className="h-4 w-4" />
-                                <div className="text-sm">
-                                  <p>Erreur lors de l&apos;import.</p>
-                                  {importResultInfo && (
-                                    <p className="text-xs mt-0.5 opacity-80">{importResultInfo}</p>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          <DialogFooter>
-                            <Button variant="outline" onClick={() => setKbImportUrlOpen(false)}>
-                              Annuler
-                            </Button>
-                            <Button
-                              onClick={handleImportUrl}
-                              disabled={!importUrl.trim() || importUrlStatus === "loading" || importUrlStatus === "success"}
-                            >
-                              {importUrlStatus === "loading" ? (
-                                <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Importation...</>
-                              ) : (
-                                <><Link className="h-4 w-4 mr-1.5" /> Importer</>
-                              )}
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                      <Dialog open={kbImportPdfOpen} onOpenChange={setKbImportPdfOpen}>
-                        <DialogTrigger asChild>
-                          <Button variant="outline">
-                            <FileUp className="h-4 w-4 mr-1.5" />
-                            Importer PDF
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                              <Upload className="h-5 w-5 text-emerald-600" />
-                              Importer un document PDF
-                            </DialogTitle>
-                            <DialogDescription>
-                              Uploadez un fichier PDF (guide, brochure, réglementation). Le texte sera extrait et vectorisé.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                              <Label>Fichier PDF</Label>
-                              <label
-                                className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-lg p-8 cursor-pointer transition-colors ${
-                                  importPdfStatus === "loading"
-                                    ? "border-blue-300 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-700"
-                                    : "border-muted hover:border-emerald-400 hover:bg-emerald-50/50 dark:hover:border-emerald-600 dark:hover:bg-emerald-900/10"
-                                }`}
-                              >
-                                {importPdfStatus === "idle" && !importPdfName && (
-                                  <>
-                                    <Upload className="h-8 w-8 text-muted-foreground" />
-                                    <div className="text-center">
-                                      <p className="text-sm font-medium">Cliquez ou glissez votre PDF</p>
-                                      <p className="text-xs text-muted-foreground mt-1">
-                                        PDF jusqu&apos;à 10 Mo
-                                      </p>
-                                    </div>
-                                  </>
-                                )}
-                                {importPdfName && importPdfStatus !== "loading" && (
-                                  <div className="flex items-center gap-2">
-                                    <FileText className="h-5 w-5 text-red-500" />
-                                    <span className="text-sm font-medium truncate max-w-[200px]">
-                                      {importPdfName}
-                                    </span>
-                                  </div>
-                                )}
-                                {importPdfStatus === "loading" && (
-                                  <div className="flex items-center gap-3">
-                                    <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-                                    <span className="text-sm text-blue-600 dark:text-blue-400">
-                                      Extraction en cours...
-                                    </span>
-                                  </div>
-                                )}
-                                {importPdfStatus === "success" && (
-                                  <div className="flex flex-col items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                                    <CheckCircle className="h-6 w-6" />
-                                    <span className="text-sm font-medium">Importé avec succès !</span>
-                                    {importResultInfo && (
-                                      <span className="text-xs opacity-80">{importResultInfo}</span>
-                                    )}
-                                  </div>
-                                )}
-                                {importPdfStatus === "error" && (
-                                  <div className="flex flex-col items-center gap-1 text-red-600 dark:text-red-400">
-                                    <AlertCircle className="h-6 w-6" />
-                                    <span className="text-sm font-medium">Erreur d&apos;import</span>
-                                    {importResultInfo && (
-                                      <span className="text-xs opacity-80">{importResultInfo}</span>
-                                    )}
-                                  </div>
-                                )}
-                                <input
-                                  type="file"
-                                  accept=".pdf"
-                                  className="hidden"
-                                  onChange={handleImportPdf}
-                                  disabled={importPdfStatus === "loading"}
-                                />
-                              </label>
-                            </div>
-                            <div className="grid gap-2">
-                              <Label>Pipeline de traitement</Label>
-                              <div className="flex flex-wrap gap-2">
-                                {[
-                                  { step: "Extraction", icon: FileText },
-                                  { step: "Nettoyage", icon: Settings },
-                                  { step: "Chunking", icon: Scissors },
-                                  { step: "Vectorisation", icon: Zap },
-                                ].map(({ step, icon: Ic }, i) => {
-                                  const IconComp = Ic;
-                                  const isDone = importPdfStatus === "success" || (importPdfStatus === "loading" && i < 1);
-                                  const isRunning = importPdfStatus === "loading" && i === 0;
-                                  return (
-                                    <div
-                                      key={step}
-                                      className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs border ${
-                                        isDone
-                                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700"
-                                          : isRunning
-                                            ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700"
-                                            : "bg-muted text-muted-foreground border-border"
-                                      }`}
-                                    >
-                                      <IconComp className="h-3 w-3" />
-                                      {step}
-                                      {isRunning && <Loader2 className="h-3 w-3 animate-spin" />}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button variant="outline" onClick={() => setKbImportPdfOpen(false)}>
-                              Fermer
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                      <Dialog open={kbDialogOpen} onOpenChange={setKbDialogOpen}>
-                        <DialogTrigger asChild>
-                          <Button>
-                            <Plus className="h-4 w-4 mr-1.5" />
-                            Ajouter un article
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Nouvel article</DialogTitle>
-                            <DialogDescription>
-                              Créer un nouvel article pour la base de connaissances.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                              <Label htmlFor="kb-title">Titre</Label>
-                              <Input
-                                id="kb-title"
-                                placeholder="Titre de l'article"
-                                value={newKbTitle}
-                                onChange={(e) => setNewKbTitle(e.target.value)}
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="grid gap-2">
-                                <Label>Catégorie</Label>
-                                <Select value={newKbCategory} onValueChange={setNewKbCategory}>
-                                  <SelectTrigger className="w-full">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="flights">Vols</SelectItem>
-                                    <SelectItem value="restaurants">
-                                      Restaurants
-                                    </SelectItem>
-                                    <SelectItem value="services">Services</SelectItem>
-                                    <SelectItem value="shops">Boutiques</SelectItem>
-                                    <SelectItem value="transport">
-                                      Transport
-                                    </SelectItem>
-                                    <SelectItem value="general">Général</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="grid gap-2">
-                                <Label>Statut</Label>
-                                <Select value={newKbStatus} onValueChange={setNewKbStatus}>
-                                  <SelectTrigger className="w-full">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="draft">Brouillon</SelectItem>
-                                    <SelectItem value="validated">Validé</SelectItem>
-                                    <SelectItem value="published">Publié</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="kb-content">Contenu</Label>
-                              <Textarea
-                                id="kb-content"
-                                placeholder="Contenu de l'article..."
-                                rows={5}
-                                value={newKbContent}
-                                onChange={(e) => setNewKbContent(e.target.value)}
-                              />
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button
-                              variant="outline"
-                              onClick={() => setKbDialogOpen(false)}
-                            >
-                              Annuler
-                            </Button>
-                            <Button
-                              disabled={kbCreating || !newKbTitle.trim() || !newKbContent.trim()}
-                              onClick={handleCreateKbArticle}
-                            >
-                              {kbCreating ? (
-                                <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Création...</>
-                              ) : (
-                                "Créer l'article"
-                              )}
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Knowledge Table */}
-                <Card className="premium-card">
-                  <CardContent className="p-0">
-                    {knowledgeLoading ? (
-                      <LoadingSpinner text="Chargement des articles..." />
-                    ) : (
-                      <div className="max-h-[500px] overflow-y-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Titre</TableHead>
-                              <TableHead>Catégorie</TableHead>
-                              <TableHead>Statut</TableHead>
-                              <TableHead className="hidden md:table-cell">
-                                Version
-                              </TableHead>
-                              <TableHead className="hidden lg:table-cell">
-                                Auteur
-                              </TableHead>
-                              <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {knowledge.map((entry) => (
-                              <TableRow key={entry.id}>
-                                <TableCell>
-                                  <div>
-                                    <p className="font-medium">{entry.title}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {formatDate(entry.updatedAt)}
-                                    </p>
-                                  </div>
-                                </TableCell>
-                                <TableCell>{getCategoryBadge(entry.category)}</TableCell>
-                                <TableCell>
-                                  {getKnowledgeStatusBadge(entry.status)}
-                                </TableCell>
-                                <TableCell className="hidden md:table-cell text-muted-foreground">
-                                  v{entry.version}
-                                </TableCell>
-                                <TableCell className="hidden lg:table-cell text-muted-foreground">
-                                  {entry.owner?.name || "—"}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0"
-                                      onClick={() => alert("Fonctionnalité de modification en cours de développement")}
-                                    >
-                                      <Edit className="h-3.5 w-3.5" />
-                                      <span className="sr-only">Modifier</span>
-                                    </Button>
-                                    {entry.status === "draft" && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 text-blue-500"
-                                        onClick={async () => {
-                                          try {
-                                            const res = await fetch("/api/knowledge", {
-                                              method: "PUT",
-                                              headers: { "Content-Type": "application/json" },
-                                              body: JSON.stringify({ id: entry.id, status: "validated" }),
-                                            });
-                                            if (res.ok) fetchKnowledge();
-                                          } catch { /* silent */ }
-                                        }}
-                                      >
-                                        <Check className="h-3.5 w-3.5" />
-                                        <span className="sr-only">Valider</span>
-                                      </Button>
-                                    )}
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0 text-muted-foreground"
-                                      onClick={async () => {
-                                        if (confirm("Archiver cet article ?")) {
-                                          try {
-                                            const res = await fetch("/api/knowledge?id=" + entry.id, { method: "DELETE" });
-                                            if (res.ok) fetchKnowledge();
-                                          } catch { /* silent */ }
-                                        }
-                                      }}
-                                    >
-                                      <Archive className="h-3.5 w-3.5" />
-                                      <span className="sr-only">Archiver</span>
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                            {knowledge.length === 0 && (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={6}
-                                  className="text-center py-8 text-muted-foreground"
-                                >
-                                  Aucun article trouvé
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Knowledge Pagination */}
-                {knowledgePagination.totalPages > 1 && (
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                      {knowledgePagination.total} article(s) &middot; Page{" "}
-                      {kbPage} sur {knowledgePagination.totalPages}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={kbPage <= 1}
-                        onClick={() => setKbPage((p) => p - 1)}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      {Array.from(
-                        { length: Math.min(knowledgePagination.totalPages, 5) },
-                        (_, i) => {
-                          const pageNum = Math.max(
-                            1,
-                            Math.min(kbPage - 2, knowledgePagination.totalPages - 4)
-                          ) + i;
-                          if (pageNum > knowledgePagination.totalPages) return null;
-                          return (
-                            <Button
-                              key={pageNum}
-                              variant={kbPage === pageNum ? "default" : "outline"}
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => setKbPage(pageNum)}
-                            >
-                              {pageNum}
-                            </Button>
-                          );
-                        }
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={kbPage >= knowledgePagination.totalPages}
-                        onClick={() => setKbPage((p) => p + 1)}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-            </div>
+            <KnowledgeTab
+              knowledge={knowledge}
+              loading={knowledgeLoading}
+              pagination={knowledgePagination}
+              search={kbSearch}
+              setSearch={setKbSearch}
+              categoryFilter={kbCategoryFilter}
+              setCategoryFilter={setKbCategoryFilter}
+              statusFilter={kbStatusFilter}
+              setStatusFilter={setKbStatusFilter}
+              page={kbPage}
+              setPage={setKbPage}
+              onFetchKnowledge={fetchKnowledge}
+            />
           )}
           {activeTab === "ai" && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* AI Settings */}
-                <div className="space-y-4">
-                  <Card className="premium-card">
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Zap className="h-4 w-4 text-amber-500" />
-                        Configuration du modèle
-                      </CardTitle>
-                      <CardDescription>
-                        Modèles Groq haute vitesse pour réponses instantanées
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      {/* Model Selection */}
-                      <div className="grid gap-2">
-                        <Label>Modèle IA</Label>
-                        <Select
-                          value={selectedModel}
-                          onValueChange={setSelectedModel}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="llama-3.3-70b-versatile">
-                              Llama 3.3 70B (Versatile)
-                            </SelectItem>
-                            <SelectItem value="llama-3.1-8b-instant">
-                              Llama 3.1 8B (Instant)
-                            </SelectItem>
-                            <SelectItem value="mixtral-8x7b-32768">
-                              Mixtral 8x7B (32K context)
-                            </SelectItem>
-                            <SelectItem value="gemma2-9b-it">
-                              Gemma 2 9B (Instruct)
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* System Prompt */}
-                      <div className="grid gap-2">
-                        <Label>Prompt système</Label>
-                        <Textarea
-                          value={systemPrompt}
-                          onChange={(e) => setSystemPrompt(e.target.value)}
-                          rows={7}
-                          className="text-sm"
-                        />
-                      </div>
-
-                      {/* Confidence Threshold */}
-                      <div className="grid gap-3">
-                        <div className="flex items-center justify-between">
-                          <Label>Seuil de confiance</Label>
-                          <span className="text-sm font-mono font-medium text-emerald-600 dark:text-emerald-400">
-                            {(confidenceThreshold * 100).toFixed(0)}%
-                          </span>
-                        </div>
-                        <Slider
-                          value={[confidenceThreshold * 100]}
-                          onValueChange={([v]) => setConfidenceThreshold(v / 100)}
-                          min={0}
-                          max={100}
-                          step={5}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          En dessous de ce seuil, la réponse sera marquée comme
-                          incertaine et un humain pourra intervenir.
-                        </p>
-                      </div>
-
-                      {/* Language Selector */}
-                      <div className="grid gap-2">
-                        <Label>Langues supportées</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {[
-                            { code: "français", flag: "🇫🇷" },
-                            { code: "anglais", flag: "🇬🇧" },
-                            { code: "espagnol", flag: "🇪🇸" },
-                            { code: "allemand", flag: "🇩🇪" },
-                            { code: "arabe", flag: "🇸🇦" },
-                            { code: "chinois", flag: "🇨🇳" },
-                          ].map((lang) => (
-                            <button
-                              key={lang.code}
-                              onClick={() => toggleLanguage(lang.code)}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                                selectedLanguages.includes(lang.code)
-                                  ? "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800"
-                                  : "bg-muted text-muted-foreground border-border hover:bg-accent"
-                              }`}
-                            >
-                              <span>{lang.flag}</span>
-                              {lang.code.charAt(0).toUpperCase() +
-                                lang.code.slice(1)}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Fallback Toggle */}
-                      <div className="flex items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <Label>Mode fallback humain</Label>
-                          <p className="text-xs text-muted-foreground">
-                            Transférer à un agent humain en cas de faible confiance
-                          </p>
-                        </div>
-                        <Switch
-                          checked={fallbackEnabled}
-                          onCheckedChange={setFallbackEnabled}
-                        />
-                      </div>
-
-                      <Button className="w-full" onClick={saveAiConfig}>
-                        <Save className="h-4 w-4 mr-2" />
-                        {aiConfigSaved ? (
-                          <span className="flex items-center gap-1.5">
-                            <Check className="h-4 w-4" />
-                            Configuration sauvegardée !
-                          </span>
-                        ) : (
-                          "Sauvegarder la configuration"
-                        )}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* AI Logs (no dedicated API — placeholder) */}
-                <Card className="premium-card">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Eye className="h-4 w-4 text-blue-500" />
-                      Journaux IA récents
-                    </CardTitle>
-                    <CardDescription>
-                      Historique des échanges avec l&apos;IA
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {aiLogsLoading ? (
-                      <div className="flex justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : aiLogs.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
-                        <MessageCircle className="h-10 w-10 opacity-30" />
-                        <p className="text-sm text-center">
-                          Les journaux IA seront disponibles une fois les conversations
-                          enregistrées via l&apos;assistant.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <ScrollArea className="max-h-[420px]">
-                          {aiLogs.map((log) => (
-                            <div
-                              key={log.id}
-                              className="border rounded-lg p-3 mb-3 hover:bg-muted/50 transition-colors"
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className={
-                                    (log.confidence || 0) >= 0.9
-                                      ? "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                      : (log.confidence || 0) >= 0.7
-                                        ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400"
-                                        : "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400"
-                                  }>
-                                    {(log.confidence || 0) * 100 >= 90 ? "Excellent" : (log.confidence || 0) * 100 >= 70 ? "Bon" : "Faible"} ({((log.confidence || 0) * 100).toFixed(0)}%)
-                                  </Badge>
-                                  <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-200">
-                                    {intentLabelMap[log.intent] || log.intent}
-                                  </Badge>
-                                </div>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(log.timestamp).toLocaleString("fr-FR")}
-                                </span>
-                              </div>
-                              <div className="space-y-2">
-                                <div className="flex items-start gap-2">
-                                  <span className="text-xs font-medium text-blue-600 dark:text-blue-400 mt-0.5 shrink-0">User:</span>
-                                  <p className="text-sm text-muted-foreground line-clamp-2">{log.userMessage}</p>
-                                </div>
-                                <div className="flex items-start gap-2">
-                                  <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0">IA:</span>
-                                  <p className="text-sm line-clamp-3">{log.aiResponse}</p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </ScrollArea>
-                        {/* Pagination */}
-                        {aiLogsTotal > aiLogsPerPage && (
-                          <div className="flex items-center justify-between pt-3 border-t">
-                            <p className="text-sm text-muted-foreground">
-                              {aiLogsTotal} échange{aiLogsTotal > 1 ? "s" : ""} au total
-                            </p>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={aiLogsPage <= 1}
-                                onClick={() => { setAiLogsPage((p) => p - 1); fetchAiLogs(aiLogsPage - 1); }}
-                              >
-                                <ChevronLeft className="h-4 w-4" />
-                              </Button>
-                              <span className="text-sm">{aiLogsPage} / {Math.ceil(aiLogsTotal / aiLogsPerPage)}</span>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={aiLogsPage >= Math.ceil(aiLogsTotal / aiLogsPerPage)}
-                                onClick={() => { setAiLogsPage((p) => p + 1); fetchAiLogs(aiLogsPage + 1); }}
-                              >
-                                <ChevronRight className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-            </div>
+            <AiConfigTab
+              systemPrompt={systemPrompt}
+              setSystemPrompt={setSystemPrompt}
+              confidenceThreshold={confidenceThreshold}
+              setConfidenceThreshold={setConfidenceThreshold}
+              selectedLanguages={selectedLanguages}
+              setSelectedLanguages={setSelectedLanguages}
+              fallbackEnabled={fallbackEnabled}
+              setFallbackEnabled={setFallbackEnabled}
+              selectedModel={selectedModel}
+              setSelectedModel={setSelectedModel}
+              aiConfigSaved={aiConfigSaved}
+              onSaveAiConfig={saveAiConfig}
+              aiConfigLoading={aiConfigLoading}
+              aiLogs={aiLogs}
+              aiLogsLoading={aiLogsLoading}
+              aiLogsTotal={aiLogsTotal}
+              aiLogsPage={aiLogsPage}
+              aiLogsPerPage={aiLogsPerPage}
+              setAiLogsPage={setAiLogsPage}
+              fetchAiLogs={fetchAiLogs}
+            />
           )}
           {activeTab === "billing" && (
-            <div className="space-y-6">
-              <div className="space-y-6">
-                {/* Filters */}
-                <Card className="premium-card">
-                  <CardContent className="p-4">
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <Select
-                        value={billingStatusFilter}
-                        onValueChange={(v) => {
-                          setBillingStatusFilter(v);
-                          setBillingPage(1);
-                        }}
-                      >
-                        <SelectTrigger className="w-full sm:w-[180px]">
-                          <Filter className="h-4 w-4 mr-1" />
-                          <SelectValue placeholder="Statut paiement" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Tous les statuts</SelectItem>
-                          <SelectItem value="paid">Payé</SelectItem>
-                          <SelectItem value="pending">En attente</SelectItem>
-                          <SelectItem value="refunded">Remboursé</SelectItem>
-                          <SelectItem value="cancelled">Annulé</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select
-                        value={billingTypeFilter}
-                        onValueChange={(v) => {
-                          setBillingTypeFilter(v);
-                          setBillingPage(1);
-                        }}
-                      >
-                        <SelectTrigger className="w-full sm:w-[180px]">
-                          <SelectValue placeholder="Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Tous les types</SelectItem>
-                          <SelectItem value="vip_lounge">VIP</SelectItem>
-                          <SelectItem value="hotel">Hôtel</SelectItem>
-                          <SelectItem value="car_rental">Voiture</SelectItem>
-                          <SelectItem value="duty_free">Duty-Free</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Card className="premium-card border-0 overflow-hidden">
-                    <CardContent className="p-4 relative">
-                      <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-400 to-teal-600" />
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">
-                            Total
-                          </p>
-                          <p className="text-2xl font-bold mt-1 bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent">
-                            {formatCurrency(realBillingStats?.total ?? billingStats.total)}
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-lg shadow-emerald-500/20">
-                          <Euro className="h-5 w-5 text-white" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="premium-card border-0 overflow-hidden">
-                    <CardContent className="p-4 relative">
-                      <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-yellow-400 to-amber-600" />
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">
-                            En attente
-                          </p>
-                          <p className="text-2xl font-bold mt-1 bg-gradient-to-r from-yellow-600 to-amber-500 dark:from-yellow-400 dark:to-amber-300 bg-clip-text text-transparent">
-                            {formatCurrency(realBillingStats?.pending ?? billingStats.pending)}
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-gradient-to-br from-yellow-400 to-amber-600 shadow-lg shadow-amber-500/20">
-                          <Clock className="h-5 w-5 text-white" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="premium-card border-0 overflow-hidden">
-                    <CardContent className="p-4 relative">
-                      <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-green-400 to-emerald-600" />
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Payé</p>
-                          <p className="text-2xl font-bold mt-1 bg-gradient-to-r from-green-600 to-emerald-500 dark:from-green-400 dark:to-emerald-300 bg-clip-text text-transparent">
-                            {formatCurrency(realBillingStats?.paid ?? billingStats.paid)}
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-gradient-to-br from-green-400 to-emerald-600 shadow-lg shadow-green-500/20">
-                          <CheckCircle className="h-5 w-5 text-white" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="premium-card border-0 overflow-hidden">
-                    <CardContent className="p-4 relative">
-                      <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-rose-400 to-red-600" />
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">
-                            Remboursé
-                          </p>
-                          <p className="text-2xl font-bold mt-1 bg-gradient-to-r from-rose-600 to-red-500 dark:from-rose-400 dark:to-red-300 bg-clip-text text-transparent">
-                            {formatCurrency(realBillingStats?.refunded ?? billingStats.refunded)}
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-gradient-to-br from-rose-400 to-red-600 shadow-lg shadow-rose-500/20">
-                          <AlertTriangle className="h-5 w-5 text-white" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Revenue Chart */}
-                <Card className="premium-card">
-                  <CardHeader className="border-b border-border/50">
-                    <CardTitle className="text-base">
-                      Revenus mensuels
-                    </CardTitle>
-                    <CardDescription>Basé sur les réservations payées</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {monthlyRevenue.length === 0 ? (
-                      <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
-                        Aucune donnée de revenus disponible
-                      </div>
-                    ) : (
-                      <ChartContainer
-                        config={revenueChartConfig}
-                        className="h-[300px] w-full"
-                      >
-                        <BarChart
-                          data={monthlyRevenue}
-                          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="mois" tickLine={false} axisLine={false} />
-                          <YAxis
-                            tickLine={false}
-                            axisLine={false}
-                            tickFormatter={(v) => `${(v / 1000).toFixed(0)}k€`}
-                          />
-                          <ChartTooltip
-                            content={<ChartTooltipContent />}
-                            formatter={(value) => [
-                              `€${Number(value).toLocaleString("fr-FR")}`,
-                              "Revenus",
-                            ]}
-                          />
-                          <Bar
-                            dataKey="revenus"
-                            fill="var(--chart-3)"
-                            radius={[4, 4, 0, 0]}
-                          />
-                        </BarChart>
-                      </ChartContainer>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Reservations Table */}
-                <Card className="premium-card">
-                  <CardHeader className="border-b border-border/50">
-                    <CardTitle className="text-base">
-                      Transactions récentes
-                    </CardTitle>
-                    <CardDescription>
-                      Dernières opérations de facturation
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    {reservationsLoading ? (
-                      <LoadingSpinner text="Chargement des transactions..." />
-                    ) : (
-                      <div className="max-h-[400px] overflow-y-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Référence</TableHead>
-                              <TableHead>Type</TableHead>
-                              <TableHead className="hidden md:table-cell">
-                                Description
-                              </TableHead>
-                              <TableHead>Montant</TableHead>
-                              <TableHead>Statut</TableHead>
-                              <TableHead className="hidden sm:table-cell">
-                                Date
-                              </TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {reservations.map((txn) => (
-                              <TableRow key={txn.id}>
-                                <TableCell className="font-mono text-xs">
-                                  {txn.reference}
-                                </TableCell>
-                                <TableCell>
-                                  {getTransactionTypeBadge(txn.type)}
-                                </TableCell>
-                                <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                                  {txn.details || (txn.user ? `${txn.user.name}` : "—")}
-                                </TableCell>
-                                <TableCell className="font-medium">
-                                  {formatCurrency(txn.totalAmount)}
-                                </TableCell>
-                                <TableCell>
-                                  {getTransactionStatusBadge(txn.paymentStatus)}
-                                </TableCell>
-                                <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                                  {formatDate(txn.createdAt)}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                            {reservations.length === 0 && (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={6}
-                                  className="text-center py-8 text-muted-foreground"
-                                >
-                                  Aucune transaction trouvée
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Billing Pagination */}
-                {reservationsPagination.totalPages > 1 && (
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                      {reservationsPagination.total} transaction(s) &middot; Page{" "}
-                      {billingPage} sur {reservationsPagination.totalPages}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={billingPage <= 1}
-                        onClick={() => setBillingPage((p) => p - 1)}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      {Array.from(
-                        { length: Math.min(reservationsPagination.totalPages, 5) },
-                        (_, i) => {
-                          const pageNum = Math.max(
-                            1,
-                            Math.min(billingPage - 2, reservationsPagination.totalPages - 4)
-                          ) + i;
-                          if (pageNum > reservationsPagination.totalPages) return null;
-                          return (
-                            <Button
-                              key={pageNum}
-                              variant={billingPage === pageNum ? "default" : "outline"}
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => setBillingPage(pageNum)}
-                            >
-                              {pageNum}
-                            </Button>
-                          );
-                        }
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={billingPage >= reservationsPagination.totalPages}
-                        onClick={() => setBillingPage((p) => p + 1)}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-            </div>
+            <BillingTab
+              reservations={reservations}
+              loading={reservationsLoading}
+              pagination={reservationsPagination}
+              billingStats={billingStats}
+              realBillingStats={realBillingStats}
+              monthlyRevenue={monthlyRevenue}
+              statusFilter={billingStatusFilter}
+              setStatusFilter={setBillingStatusFilter}
+              typeFilter={billingTypeFilter}
+              setTypeFilter={setBillingTypeFilter}
+              page={billingPage}
+              setPage={setBillingPage}
+            />
           )}
           {activeTab === "modules" && (
             <div className="space-y-6">
@@ -3260,7 +885,6 @@ export default function AdminDashboard() {
                           }}
                         />
                       </div>
-
                       <div className="grid gap-2">
                         <Label htmlFor="mod-partner">Nom du partenaire</Label>
                         <Input
@@ -3270,7 +894,6 @@ export default function AdminDashboard() {
                           placeholder="Nom du partenaire principal"
                         />
                       </div>
-
                       <div className="grid grid-cols-2 gap-3">
                         <div className="grid gap-2">
                           <Label htmlFor="mod-pricing">Tarif (€)</Label>
@@ -3293,7 +916,6 @@ export default function AdminDashboard() {
                           />
                         </div>
                       </div>
-
                       <div className="grid gap-2">
                         <Label htmlFor="mod-email">Email de contact</Label>
                         <Input
@@ -3304,7 +926,6 @@ export default function AdminDashboard() {
                           placeholder="contact@partenaire.fr"
                         />
                       </div>
-
                       <div className="grid gap-2">
                         <Label htmlFor="mod-desc">Description</Label>
                         <Textarea
@@ -3314,7 +935,6 @@ export default function AdminDashboard() {
                           rows={3}
                         />
                       </div>
-
                       {moduleConfigSaved && (
                         <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300">
                           <CheckCircle className="h-4 w-4" />
@@ -3337,542 +957,25 @@ export default function AdminDashboard() {
                   </DialogContent>
                 </Dialog>
               </div>
-
             </div>
           )}
           {activeTab === "flights" && (
-            <div className="space-y-6">
-              <div className="space-y-4">
-                {/* Flight Filters */}
-                <Card className="premium-card">
-                  <CardContent className="p-4">
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Rechercher par numéro de vol ou compagnie..."
-                          value={flightSearch}
-                          onChange={(e) => setFlightSearch(e.target.value)}
-                          className="pl-9"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">
-                        <Button
-                          variant={flightFilter === "all" ? "default" : "ghost"}
-                          size="sm"
-                          onClick={() => setFlightFilter("all")}
-                        >
-                          Tous
-                        </Button>
-                        <Button
-                          variant={flightFilter === "depart" ? "default" : "ghost"}
-                          size="sm"
-                          onClick={() => setFlightFilter("depart")}
-                        >
-                          <Plane className="h-3.5 w-3.5 mr-1 rotate-[25deg]" />
-                          Départs
-                        </Button>
-                        <Button
-                          variant={flightFilter === "arrivee" ? "default" : "ghost"}
-                          size="sm"
-                          onClick={() => setFlightFilter("arrivee")}
-                        >
-                          <Plane className="h-3.5 w-3.5 mr-1 -rotate-[25deg]" />
-                          Arrivées
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Flights Table */}
-                <Card className="premium-card">
-                  <CardContent className="p-0">
-                    {flightsLoading ? (
-                      <LoadingSpinner text="Chargement des vols..." />
-                    ) : (
-                      <div className="max-h-[500px] overflow-y-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Vol</TableHead>
-                              <TableHead>Compagnie</TableHead>
-                              <TableHead className="hidden lg:table-cell">
-                                Départ
-                              </TableHead>
-                              <TableHead className="hidden lg:table-cell">
-                                Arrivée
-                              </TableHead>
-                              <TableHead>Heure</TableHead>
-                              <TableHead className="hidden sm:table-cell">
-                                Porte
-                              </TableHead>
-                              <TableHead className="hidden md:table-cell">
-                                Terminal
-                              </TableHead>
-                              <TableHead>Statut</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {flights.map((flight) => (
-                              <TableRow key={flight.id}>
-                                <TableCell className="font-mono font-semibold">
-                                  {flight.flightNumber}
-                                </TableCell>
-                                <TableCell className="font-medium">
-                                  {flight.airline}
-                                </TableCell>
-                                <TableCell className="hidden lg:table-cell text-muted-foreground">
-                                  {flight.departure}
-                                </TableCell>
-                                <TableCell className="hidden lg:table-cell text-muted-foreground">
-                                  {flight.arrival}
-                                </TableCell>
-                                <TableCell className="font-mono">
-                                  {formatTime(flight.scheduledDep)}
-                                </TableCell>
-                                <TableCell className="hidden sm:table-cell text-muted-foreground">
-                                  {flight.gate || "—"}
-                                </TableCell>
-                                <TableCell className="hidden md:table-cell">
-                                  <Badge variant="secondary">
-                                    {flight.terminal || "—"}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  {getFlightStatusBadge(flight.status)}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                            {flights.length === 0 && (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={8}
-                                  className="text-center py-8 text-muted-foreground"
-                                >
-                                  Aucun vol trouvé
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-            </div>
+            <FlightsTab
+              flights={flights}
+              loading={flightsLoading}
+              filter={flightFilter}
+              setFilter={setFlightFilter}
+              search={flightSearch}
+              setSearch={setFlightSearch}
+            />
           )}
           {activeTab === "whatsapp" && (
-            <div className="space-y-6">
-              <div className="space-y-6">
-                {/* ─── A) Connection Status Panel (4 cards) ───────────────────── */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-emerald-500" />
-                    État des connexions
-                  </h3>
-                  {healthLoading ? (
-                    <LoadingSpinner text="Chargement de l'état de santé…" />
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      {/* Database Card */}
-                      <Card className="border-l-4 border-l-emerald-500 premium-card">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <Globe className="h-4 w-4 text-emerald-500" />
-                            Base de données
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <StatusBadge status={healthData?.services.database.status} />
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span>{healthData?.services.database.latencyMs ?? "—"} ms</span>
-                          </div>
-                          {healthData?.services.database.details && (
-                            <p className="text-xs text-muted-foreground">{healthData.services.database.details}</p>
-                          )}
-                          {healthData?.services.database.error && (
-                            <p className="text-xs text-red-500">{healthData.services.database.error}</p>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      {/* AI Service Card */}
-                      <Card className="border-l-4 border-l-teal-500 premium-card">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <Zap className="h-4 w-4 text-teal-500" />
-                            Service IA (Groq)
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <StatusBadge status={healthData?.services.ai.status} />
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span>{healthData?.services.ai.latencyMs ?? "—"} ms</span>
-                          </div>
-                          {healthData?.services.ai.details && (
-                            <p className="text-xs text-muted-foreground">{healthData.services.ai.details}</p>
-                          )}
-                          {healthData?.services.ai.error && (
-                            <p className="text-xs text-red-500">{healthData.services.ai.error}</p>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      {/* OpenBSP Bridge Card */}
-                      <Card className="border-l-4 border-l-violet-500 premium-card">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <MessageCircle className="h-4 w-4 text-violet-500" />
-                            OpenBSP Bridge
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <StatusBadge status={healthData?.services.openbsp.status} labelConnected="Connecté" labelOffline="Déconnecté" />
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span>{healthData?.services.openbsp.latencyMs ?? "—"} ms</span>
-                          </div>
-                          {healthData?.services.openbsp.details && (
-                            <p className="text-xs text-muted-foreground">{healthData.services.openbsp.details}</p>
-                          )}
-                          {healthData?.services.openbsp.error && (
-                            <p className="text-xs text-red-500">{healthData.services.openbsp.error}</p>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      {/* WhatsApp Provider Card */}
-                      <Card className="border-l-4 border-l-green-500 premium-card">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <Radio className="h-4 w-4 text-green-500" />
-                            WhatsApp Provider
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <StatusBadge status={healthData?.services.whatsapp.status} labelConnected="Actif" labelOffline="Inactif" />
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span>{healthData?.services.whatsapp.latencyMs ?? "—"} ms</span>
-                          </div>
-                          {healthData?.services.whatsapp.details && (
-                            <p className="text-xs text-muted-foreground">{healthData.services.whatsapp.details}</p>
-                          )}
-                          {healthData?.services.whatsapp.error && (
-                            <p className="text-xs text-red-500">{healthData.services.whatsapp.error}</p>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
-                </div>
-
-                {/* ─── B) Webhook Configuration (Meta + OpenBSP) ───────────────── */}
-                <Card className="premium-card">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Link className="h-5 w-5 text-emerald-500" />
-                      Configuration des Webhooks
-                    </CardTitle>
-                    <CardDescription>
-                      Endpoints de réception des messages WhatsApp (Meta Cloud API & OpenBSP)
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* OpenBSP Webhook */}
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-900/30 dark:text-violet-400 dark:border-violet-800 text-xs">
-                            OpenBSP
-                          </Badge>
-                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 text-xs">
-                            Principal
-                          </Badge>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">URL du Webhook</Label>
-                          <div className="flex items-center gap-2">
-                            <Input readOnly value="/api/webhook/openbsp" className="bg-muted font-mono text-xs h-8" />
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Secret</Label>
-                          <div className="flex items-center gap-2">
-                            <Input readOnly value={healthData?.services.openbsp.status === "up" ? "••••••••••" : "Non configuré"} className="bg-muted font-mono text-xs h-8" type="password" />
-                            <Badge className="text-xs shrink-0" variant={process.env.NODE_ENV === "production" ? "default" : "outline"}>
-                              {process.env.NODE_ENV === "production" ? "Configuré" : "Dev"}
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="rounded bg-muted/30 p-2">
-                          <p className="text-xs text-muted-foreground">
-                            Port 3001 • Self-hosted • Temps réel • Sessions multiples
-                          </p>
-                        </div>
-                      </div>
-                      {/* Meta Webhook */}
-                      <div className="rounded-lg border p-4 space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 text-xs">
-                            Meta Cloud
-                          </Badge>
-                          <Badge className="bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-800 text-xs">
-                            Fallback
-                          </Badge>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">URL du Webhook</Label>
-                          <div className="flex items-center gap-2">
-                            <Input readOnly value="/api/webhook/whatsapp" className="bg-muted font-mono text-xs h-8" />
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Verify Token</Label>
-                          <div className="flex items-center gap-2">
-                            <Input readOnly value="aeroassist_verify_2024" className="bg-muted font-mono text-xs h-8" type="password" />
-                            <Badge className="text-xs shrink-0" variant="outline">Configuré</Badge>
-                          </div>
-                        </div>
-                        <div className="rounded bg-muted/30 p-2">
-                          <p className="text-xs text-muted-foreground">
-                            HMAC-SHA256 • Templates natifs • Production
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* ─── C) WhatsApp Templates Panel ─────────────────────────── */}
-                <Card className="premium-card">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-violet-500" />
-                      Templates WhatsApp
-                    </CardTitle>
-                    <CardDescription>
-                      Gestion des templates de messages automatisés ({whatsappTemplates.length} templates)
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto max-h-64 overflow-y-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[180px]">Nom</TableHead>
-                            <TableHead>Catégorie</TableHead>
-                            <TableHead>Langue</TableHead>
-                            <TableHead>Statut</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {whatsappTemplates.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
-                                Aucun template configuré
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            whatsappTemplates.map((tpl) => (
-                              <TableRow key={tpl.id}>
-                                <TableCell className="font-medium text-sm">{tpl.displayName}</TableCell>
-                                <TableCell>
-                                  <Badge variant="outline" className="text-xs">
-                                    {tpl.category}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-sm uppercase">{tpl.language}</TableCell>
-                                <TableCell>
-                                  <Badge
-                                    className={`text-xs ${
-                                      tpl.status === "approved" ? "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400" :
-                                      tpl.status === "submitted" ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400" :
-                                      "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400"
-                                    }`}
-                                  >
-                                    {tpl.status === "approved" ? "✅ Approuvé" : tpl.status === "submitted" ? "⏳ Soumis" : "📝 Brouillon"}
-                                  </Badge>
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* ─── D) Contacts Panel ─────────────────────────────────────── */}
-                <Card className="premium-card">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Users className="h-5 w-5 text-teal-500" />
-                      Contacts WhatsApp
-                    </CardTitle>
-                    <CardDescription>
-                      Gestion des contacts et consentements RGPD ({whatsappContacts.length} contacts)
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto max-h-64 overflow-y-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Contact</TableHead>
-                            <TableHead>Langue</TableHead>
-                            <TableHead>Opt-in</TableHead>
-                            <TableHead>Statut</TableHead>
-                            <TableHead className="text-right">Messages</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {whatsappContacts.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
-                                Aucun contact enregistré
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            whatsappContacts.map((c) => (
-                              <TableRow key={c.id}>
-                                <TableCell>
-                                  <div>
-                                    <p className="text-sm font-medium">{c.pushName || c.phoneNumber}</p>
-                                    <p className="text-xs text-muted-foreground">{c.phoneNumber}</p>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-sm uppercase">{c.language}</TableCell>
-                                <TableCell>
-                                  <Badge variant="outline" className={`text-xs ${c.isOptIn ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400" : "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400"}`}>
-                                    {c.isOptIn ? "✅ Oui" : "❌ Non"}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  {c.isBlacklisted ? (
-                                    <Badge className="bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 text-xs">
-                                      🚫 Bloqué
-                                    </Badge>
-                                  ) : (
-                                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 text-xs">
-                                      Actif
-                                    </Badge>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-right text-sm">{c.messageCount}</TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* ─── E) Edge Cases + Security ──────────────────────────────── */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Edge Case Handling */}
-                  <Card className="premium-card">
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5 text-amber-500" />
-                        Gestion des cas limites
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2 text-sm">
-                        {[
-                          { cas: "Message vide", reponse: "Redirection avec exemples", badge: "Redirection", badgeClass: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/20 dark:text-teal-400 dark:border-teal-800" },
-                          { cas: "Média (image/vidéo/audio)", reponse: "Type non supporté", badge: "Non supporté", badgeClass: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800" },
-                          { cas: "Timeout Groq IA", reponse: "Fallback FAQ statique", badge: "Fallback", badgeClass: "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800" },
-                          { cas: "Message >4000 car.", reponse: "Demande de raccourcir", badge: "Limitation", badgeClass: "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800" },
-                          { cas: "Contact blacklisté", reponse: "Message bloqué silencieusement", badge: "Bloqué", badgeClass: "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/20 dark:text-gray-400 dark:border-gray-800" },
-                          { cas: "Numéro invalide", reponse: "Rejet avec statut invalid_phone", badge: "Validation", badgeClass: "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/20 dark:text-cyan-400 dark:border-cyan-800" },
-                        ].map((item) => (
-                          <div key={item.cas} className="flex items-center justify-between rounded border p-2">
-                            <span className="font-medium text-xs">{item.cas}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground hidden sm:inline">{item.reponse}</span>
-                              <Badge variant="outline" className={`text-xs shrink-0 ${item.badgeClass}`}>{item.badge}</Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Security Panel */}
-                  <Card className="premium-card">
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Shield className="h-5 w-5 text-emerald-500" />
-                        Mesures de sécurité
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 gap-3">
-                        {[
-                          { icon: Shield, label: "Secret OpenBSP", desc: "Vérification timing-safe du header X-OpenBSP-Secret", color: "text-violet-500" },
-                          { icon: AlertCircle, label: "Rate Limiting", desc: "200 req/min webhook, 20 req/min par téléphone", color: "text-amber-500" },
-                          { icon: Eye, label: "Filtrage PII", desc: "Numéros de téléphone masqués dans les logs", color: "text-teal-500" },
-                          { icon: Lock, label: "E.164 Validation", desc: "Validation des numéros internationaux (8-15 chiffres)", color: "text-red-500" },
-                          { icon: CheckCircle, label: "RGPD Compliance", desc: "Opt-in/out, blacklist, consentement tracking", color: "text-emerald-500" },
-                          { icon: Globe, label: "Security Headers", desc: "CSP, HSTS, X-Frame-Options sur tous les endpoints", color: "text-blue-500" },
-                        ].map((item) => (
-                          <div key={item.label} className="flex items-start gap-3 rounded-lg border p-3">
-                            <item.icon className={`h-4 w-4 mt-0.5 shrink-0 ${item.color}`} />
-                            <div>
-                              <p className="text-xs font-medium">{item.label}</p>
-                              <p className="text-xs text-muted-foreground">{item.desc}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* ─── F) Rate Limiting Monitor ──────────────────────────────── */}
-                <Card className="premium-card">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <BarChart3 className="h-5 w-5 text-emerald-500" />
-                      Moniteur de limitation de débit
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      {[
-                        { value: "200", unit: "req/min", label: "Webhook", color: "text-violet-600" },
-                        { value: "20", unit: "req/min", label: "Par téléphone", color: "text-red-600" },
-                        { value: "100", unit: "req/15min", label: "API default", color: "text-teal-600" },
-                        { value: "20", unit: "req/min", label: "Mode strict", color: "text-amber-600" },
-                      ].map((item) => (
-                        <div key={item.label} className="rounded-lg border p-3 text-center space-y-1">
-                          <p className={`text-xl font-bold ${item.color}`}>{item.value}</p>
-                          <p className="text-xs text-muted-foreground">{item.unit}</p>
-                          <p className="text-xs font-medium">{item.label}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-            </div>
+            <WhatsAppConsoleTab
+              healthData={healthData}
+              healthLoading={healthLoading}
+              whatsappTemplates={whatsappTemplates}
+              whatsappContacts={whatsappContacts}
+            />
           )}
         </div>
       </div>
