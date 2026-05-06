@@ -1,0 +1,125 @@
+# =============================================================================
+# AeroAssist — Docker Compose Override for LOCAL DEVELOPMENT
+# =============================================================================
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.override.yml up
+#
+# This file layers on top of docker-compose.yml to provide a developer-friendly
+# environment: live-reloading Next.js, simplified credentials, and optional
+# Redis for caching.
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Next.js backend — local dev build with hot-reload
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+      target: development          # Use the dev stage if the Dockerfile supports multi-stage
+    command: npm run dev            # Override CMD to run Next.js in dev mode
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://aeroassist:aeroassist@postgres:5432/aeroassist?schema=public
+      REDIS_URL: redis://redis:6379
+      # Keep non-conflicting env vars from the base file via compose merge
+      PORT: 3000
+      OPENBSP_API_URL: http://openbsp:3001
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-70b-versatile}
+      GROQ_TEMPERATURE: ${GROQ_TEMPERATURE:-0.3}
+      GROQ_MAX_TOKENS: ${GROQ_MAX_TOKENS:-2048}
+      JWT_SECRET: ${JWT_SECRET:-jwt_dev_secret_change_me}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      NEXT_PUBLIC_ADMIN_PIN: ${NEXT_PUBLIC_ADMIN_PIN:-1234}
+      UPLOAD_MAX_FILE_SIZE: ${UPLOAD_MAX_FILE_SIZE:-52428800}
+      UPLOAD_DESTINATION: /app/uploads
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-aeroassist_verify_2024}
+      WHATSAPP_API_VERSION: ${WHATSAPP_API_VERSION:-v17.0}
+    volumes:
+      # Mount source for hot-reload (compose merge keeps logs & uploads from base)
+      - .:/app
+      - /app/node_modules          # Prevent host node_modules from clobbering container's
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    # Remove production deploy limits for dev flexibility
+    deploy: {}
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL + pgvector — simplified dev credentials
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: aeroassist_postgres_dev
+    restart: "no"
+    environment:
+      POSTGRES_USER: aeroassist
+      POSTGRES_PASSWORD: aeroassist
+      POSTGRES_DB: aeroassist
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aeroassist -d aeroassist"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    deploy: {}
+
+  # ---------------------------------------------------------------------------
+  # Redis — no auth for local dev convenience
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: aeroassist_redis_dev
+    restart: "no"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    deploy: {}
+
+  # ---------------------------------------------------------------------------
+  # OpenBSP bridge — keep from main compose, relax for dev
+  # ---------------------------------------------------------------------------
+  openbsp:
+    restart: "no"
+    environment:
+      REDIS_URL: redis://redis:6379
+    deploy: {}
+
+  # ---------------------------------------------------------------------------
+  # NGINX — not needed for local dev (access backend directly on :3000)
+  # ---------------------------------------------------------------------------
+  nginx:
+    profiles:
+      - disabled               # Won't start unless explicitly requested
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local

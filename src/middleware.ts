@@ -4,7 +4,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public API routes that don't need auth
-  const publicRoutes = ["/api/chat", "/api/health", "/api/route"];
+  const publicRoutes = ["/api/chat", "/api/health", "/api/route", "/api/rag/test"];
   const publicPrefixes = [
     "/api/webhook/",        // OpenBSP + Meta WhatsApp webhooks (signed by provider)
     "/api/stripe/webhook",  // Stripe webhooks (signed by Stripe)
