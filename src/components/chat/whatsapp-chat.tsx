@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plane, ArrowLeft, Send, Bot, User } from 'lucide-react'
+import { Plane, Send, Bot, User } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -574,7 +574,7 @@ export default function WhatsAppChat() {
           className="size-10 rounded-full bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white shadow-md disabled:opacity-40 transition-all duration-150 active:scale-90"
           aria-label="Envoyer"
         >
-          <Send className="size-4.5 -rotate-0" />
+          <Send className="size-5 -rotate-0" />
         </Button>
       </form>
     </div>

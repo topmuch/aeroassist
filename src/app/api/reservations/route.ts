@@ -19,6 +19,7 @@ const reservationQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   type: z.enum(['vip_lounge', 'hotel', 'car_rental', 'duty_free']).optional(),
   status: z.enum(['pending', 'confirmed', 'cancelled', 'completed']).optional(),
+  paymentStatus: z.enum(['pending', 'paid', 'refunded', 'cancelled']).optional(),
   userId: z.string().optional(),
 });
 
@@ -32,6 +33,7 @@ export async function GET(request: NextRequest) {
       limit: searchParams.get('limit') || undefined,
       type: searchParams.get('type') || undefined,
       status: searchParams.get('status') || undefined,
+      paymentStatus: searchParams.get('paymentStatus') || undefined,
       userId: searchParams.get('userId') || undefined,
     };
 
@@ -43,12 +45,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { page, limit, type, status, userId } = parsed.data;
+    const { page, limit, type, status, paymentStatus, userId } = parsed.data;
     const skip = (page - 1) * limit;
 
-    const where = {
+    const where: Record<string, unknown> = {
       ...(type && { type }),
       ...(status && { status }),
+      ...(paymentStatus && { paymentStatus }),
       ...(userId && { userId }),
     };
 

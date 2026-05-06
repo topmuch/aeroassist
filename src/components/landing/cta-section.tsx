@@ -4,7 +4,11 @@ import { motion } from "framer-motion";
 import { Plane, MessageCircle, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default function CTASection() {
+interface CTASectionProps {
+  onViewChange: (view: string) => void;
+}
+
+export default function CTASection({ onViewChange }: CTASectionProps) {
   return (
     <section id="cta" className="relative overflow-hidden">
       {/* Dark gradient background */}
@@ -48,9 +52,8 @@ export default function CTASection() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="mt-4 max-w-xl text-lg text-gray-300/70"
           >
-            Rejoignez plus de 10 000 voyageurs qui utilisent AeroAssist
-            pour une expérience aéroport sans stress. Commencez maintenant en
-            scannant le QR code.
+            AeroAssist est votre assistant intelligent pour tous vos besoins aéroportuaires.
+            Commencez maintenant en scannant le QR code.
           </motion.p>
 
           {/* CTA + QR Code */}
@@ -81,6 +84,7 @@ export default function CTASection() {
             <div className="flex flex-col items-center sm:items-start gap-4">
               <Button
                 size="lg"
+                onClick={() => onViewChange("chat")}
                 className="bg-[#25D366] hover:bg-[#20bd5a] text-white text-base px-10 py-7 rounded-xl shadow-xl shadow-[#25D366]/25 hover:shadow-2xl hover:shadow-[#25D366]/40 transition-all"
               >
                 <MessageCircle className="size-5" />
@@ -107,15 +111,15 @@ export default function CTASection() {
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-              <span className="text-xs text-gray-400 hover:text-gray-300 transition-colors cursor-pointer">
+              <button onClick={() => {}} className="text-xs text-gray-400 hover:text-gray-300 transition-colors cursor-pointer">
                 Mentions légales
-              </span>
-              <span className="text-xs text-gray-400 hover:text-gray-300 transition-colors cursor-pointer">
+              </button>
+              <button onClick={() => {}} className="text-xs text-gray-400 hover:text-gray-300 transition-colors cursor-pointer">
                 Politique de confidentialité
-              </span>
-              <span className="text-xs text-gray-400 hover:text-gray-300 transition-colors cursor-pointer">
+              </button>
+              <button onClick={() => {}} className="text-xs text-gray-400 hover:text-gray-300 transition-colors cursor-pointer">
                 Conditions d&apos;utilisation
-              </span>
+              </button>
             </div>
 
             <p className="text-xs text-gray-500">

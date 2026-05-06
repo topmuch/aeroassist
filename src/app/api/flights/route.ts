@@ -10,6 +10,12 @@ const flightQuerySchema = z.object({
   search: z.string().optional(),
 });
 
+// Deterministic pseudo-random for consistent mock data
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
 // Realistic mock flight data generator
 function generateMockFlights() {
   const airlines = [
@@ -69,27 +75,27 @@ function generateMockFlights() {
   }> = [
     { status: 'scheduled', delay: null, early: null },
     { status: 'boarding', delay: null, early: null },
-    { status: 'delayed', delay: 30 + Math.floor(Math.random() * 90), early: null },
-    { status: 'delayed', delay: 15 + Math.floor(Math.random() * 60), early: null },
+    { status: 'delayed', delay: 30 + Math.floor(seededRandom(100) * 90), early: null },
+    { status: 'delayed', delay: 15 + Math.floor(seededRandom(101) * 60), early: null },
     { status: 'cancelled', delay: null, early: null },
-    { status: 'departed', delay: null, early: Math.floor(Math.random() * 15) },
-    { status: 'arrived', delay: null, early: Math.floor(Math.random() * 20) },
+    { status: 'departed', delay: null, early: Math.floor(seededRandom(102) * 15) },
+    { status: 'arrived', delay: null, early: Math.floor(seededRandom(103) * 20) },
   ];
 
   const now = new Date();
   const flights = [];
 
   for (let i = 0; i < 30; i++) {
-    const airline = airlines[Math.floor(Math.random() * airlines.length)];
-    const flightNum = `${airline.code}${100 + Math.floor(Math.random() * 900)}`;
-    const dest = destinations[Math.floor(Math.random() * destinations.length)];
-    const statusObj = statuses[Math.floor(Math.random() * statuses.length)];
-    const isDeparture = Math.random() > 0.5;
-    const airport = Math.random() > 0.5 ? 'CDG' : 'ORY';
-    const terminal = airport === 'CDG' ? `T${Math.floor(Math.random() * 3) + 1}` : `T${Math.floor(Math.random() * 4) + 1}`;
-    const gate = `${terminal[1]}${String(Math.floor(Math.random() * 40) + 1).padStart(2, '0')}`;
+    const airline = airlines[Math.floor(seededRandom(i * 10 + 1) * airlines.length)];
+    const flightNum = `${airline.code}${100 + Math.floor(seededRandom(i * 10 + 2) * 900)}`;
+    const dest = destinations[Math.floor(seededRandom(i * 10 + 3) * destinations.length)];
+    const statusObj = statuses[Math.floor(seededRandom(i * 10 + 4) * statuses.length)];
+    const isDeparture = seededRandom(i * 10 + 5) > 0.5;
+    const airport = seededRandom(i * 10 + 6) > 0.5 ? 'CDG' : 'ORY';
+    const terminal = airport === 'CDG' ? `T${Math.floor(seededRandom(i * 10 + 7) * 3) + 1}` : `T${Math.floor(seededRandom(i * 10 + 8) * 4) + 1}`;
+    const gate = `${terminal[1]}${String(Math.floor(seededRandom(i * 10 + 9) * 40) + 1).padStart(2, '0')}`;
 
-    const hourOffset = -4 + Math.floor(Math.random() * 8);
+    const hourOffset = -4 + Math.floor(seededRandom(i * 10 + 10) * 8);
     const scheduledTime = new Date(now.getTime() + hourOffset * 60 * 60 * 1000);
 
     let scheduledDep: Date;
@@ -101,12 +107,12 @@ function generateMockFlights() {
       departure = airport;
       arrival = dest.code;
       scheduledDep = scheduledTime;
-      scheduledArr = new Date(scheduledTime.getTime() + (60 + Math.floor(Math.random() * 480)) * 60 * 1000);
+      scheduledArr = new Date(scheduledTime.getTime() + (60 + Math.floor(seededRandom(i * 10 + 11) * 480)) * 60 * 1000);
     } else {
       departure = dest.code;
       arrival = airport;
       scheduledArr = scheduledTime;
-      scheduledDep = new Date(scheduledTime.getTime() - (60 + Math.floor(Math.random() * 480)) * 60 * 1000);
+      scheduledDep = new Date(scheduledTime.getTime() - (60 + Math.floor(seededRandom(i * 10 + 12) * 480)) * 60 * 1000);
     }
 
     let actualDep: Date | null = null;

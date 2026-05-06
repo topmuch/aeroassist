@@ -1,8 +1,15 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    // Only allow in development or with secret header
+    if (process.env.NODE_ENV === "production") {
+      const secret = request.headers.get("x-seed-secret");
+      if (secret !== process.env.SEED_SECRET) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
     // Clean existing data (order matters for FK constraints)
     await db.analyticsEvent.deleteMany();
     await db.auditLog.deleteMany();

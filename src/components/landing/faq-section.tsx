@@ -22,7 +22,7 @@ const faqs = [
   {
     question: "Quelles langues sont supportées ?",
     answer:
-      "AeroAssist supporte actuellement 15 langues : français, anglais, espagnol, allemand, italien, portugais, néerlandais, arabe, chinois (mandarin), japonais, coréen, russe, hindi, turc et polonais. Notre système de traduction automatique permet une communication fluide quelle que soit votre langue maternelle, et vous pouvez changer de langue à tout moment en cours de conversation.",
+      "AeroAssist supporte actuellement 4 langues : français, anglais, espagnol et allemand. D'autres langues seront ajoutées prochainement.",
   },
   {
     question: "Comment réserver un salon VIP ?",
@@ -47,7 +47,7 @@ const faqs = [
   {
     question: "Comment contacter un agent humain ?",
     answer:
-      "Si l'assistant IA ne peut pas résoudre votre problème, vous pouvez à tout moment demander à parler à un agent humain en tapant « Je souhaite parler à un agent » ou « Transférer à un conseiller ». Un agent du service client sera alors joint à votre conversation WhatsApp dans un délai moyen de 2 minutes, disponible 24h/24 et 7j/7. Le contexte de votre conversation avec l'IA sera transmis à l'agent pour une prise en charge rapide et efficace.",
+      "Si l'assistant IA ne peut pas répondre à votre question, il vous orientera vers le service d'information le plus proche ou vers les ressources appropriées.",
   },
 ];
 

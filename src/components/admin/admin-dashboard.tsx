@@ -586,6 +586,11 @@ export default function AdminDashboard() {
   const [userRoleFilter, setUserRoleFilter] = useState("all");
   const [userPage, setUserPage] = useState(1);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPhone, setNewUserPhone] = useState("");
+  const [newUserRole, setNewUserRole] = useState("traveler");
+  const [userCreating, setUserCreating] = useState(false);
   const usersPerPage = 8;
 
   // ─── Knowledge state ────────────────────────────────────────────────────
@@ -670,6 +675,7 @@ export default function AdminDashboard() {
   const [billingTypeFilter, setBillingTypeFilter] = useState("all");
   const [billingPage, setBillingPage] = useState(1);
   const billingPerPage = 10;
+  const [realBillingStats, setRealBillingStats] = useState<{ total: number; paid: number; pending: number; refunded: number } | null>(null);
 
   // ─── KB Import state ────────────────────────────────────────────────────
   const [kbImportUrlOpen, setKbImportUrlOpen] = useState(false);
@@ -747,6 +753,15 @@ export default function AdminDashboard() {
       setUsersLoading(false);
     }
   }, [userPage, userSearch, userRoleFilter, usersPerPage]);
+
+  // ─── Fetch: Billing Stats ──────────────────────────────────────────────
+  const fetchBillingStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/billing/stats");
+      const data = await res.json();
+      if (data.success) setRealBillingStats(data.data);
+    } catch { /* silent */ }
+  }, []);
 
   // ─── Fetch: Knowledge ───────────────────────────────────────────────────
   const fetchKnowledge = useCallback(async () => {
@@ -851,7 +866,7 @@ export default function AdminDashboard() {
         page: String(billingPage),
         limit: String(billingPerPage),
       });
-      if (billingStatusFilter !== "all") params.set("status", billingStatusFilter);
+      if (billingStatusFilter !== "all") params.set("paymentStatus", billingStatusFilter);
       if (billingTypeFilter !== "all") params.set("type", billingTypeFilter);
       const res = await fetch(`/api/reservations?${params}`);
       const data = await res.json();
@@ -996,7 +1011,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchHealth();
     fetchWhatsappData();
-  }, [fetchHealth, fetchWhatsappData]);
+    fetchBillingStats();
+  }, [fetchHealth, fetchWhatsappData, fetchBillingStats]);
 
   // Auto-refresh health every 30 seconds
   useEffect(() => {
@@ -1805,7 +1821,12 @@ export default function AdminDashboard() {
                       </Select>
                       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button>
+                          <Button onClick={() => {
+                            setNewUserName("");
+                            setNewUserEmail("");
+                            setNewUserPhone("");
+                            setNewUserRole("traveler");
+                          }}>
                             <Plus className="h-4 w-4 mr-1.5" />
                             Ajouter un utilisateur
                           </Button>
@@ -1822,6 +1843,8 @@ export default function AdminDashboard() {
                               <Label htmlFor="user-name">Nom complet</Label>
                               <Input
                                 id="user-name"
+                                value={newUserName}
+                                onChange={(e) => setNewUserName(e.target.value)}
                                 placeholder="Ex: Jean Dupont"
                               />
                             </div>
@@ -1830,6 +1853,8 @@ export default function AdminDashboard() {
                               <Input
                                 id="user-email"
                                 type="email"
+                                value={newUserEmail}
+                                onChange={(e) => setNewUserEmail(e.target.value)}
                                 placeholder="Ex: jean.dupont@email.fr"
                               />
                             </div>
@@ -1837,13 +1862,15 @@ export default function AdminDashboard() {
                               <Label htmlFor="user-phone">Téléphone</Label>
                               <Input
                                 id="user-phone"
+                                value={newUserPhone}
+                                onChange={(e) => setNewUserPhone(e.target.value)}
                                 placeholder="Ex: +33 6 12 34 56 78"
                               />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                               <div className="grid gap-2">
                                 <Label>Rôle</Label>
-                                <Select defaultValue="traveler">
+                                <Select value={newUserRole} onValueChange={setNewUserRole}>
                                   <SelectTrigger className="w-full">
                                     <SelectValue />
                                   </SelectTrigger>
@@ -1892,8 +1919,26 @@ export default function AdminDashboard() {
                             >
                               Annuler
                             </Button>
-                            <Button onClick={() => setUserDialogOpen(false)}>
-                              Créer l&apos;utilisateur
+                            <Button disabled={userCreating} onClick={async () => {
+                              if (!newUserName || !newUserEmail) return;
+                              setUserCreating(true);
+                              try {
+                                const res = await fetch("/api/users", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ name: newUserName, email: newUserEmail, phone: newUserPhone || null, role: newUserRole, language: "fr" }),
+                                });
+                                if (res.ok) {
+                                  setUserDialogOpen(false);
+                                  setNewUserName("");
+                                  setNewUserEmail("");
+                                  setNewUserPhone("");
+                                  setNewUserRole("traveler");
+                                  fetchUsers();
+                                }
+                              } catch { /* silent */ } finally { setUserCreating(false); }
+                            }}>
+                              {userCreating ? "Création..." : "Créer l&apos;utilisateur"}
                             </Button>
                           </DialogFooter>
                         </DialogContent>
@@ -1971,7 +2016,7 @@ export default function AdminDashboard() {
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex items-center justify-end gap-1">
-                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => alert("Fonctionnalité de modification en cours de développement")}>
                                       <Edit className="h-3.5 w-3.5" />
                                       <span className="sr-only">Modifier</span>
                                     </Button>
@@ -1979,6 +2024,15 @@ export default function AdminDashboard() {
                                       variant="ghost"
                                       size="sm"
                                       className="h-8 w-8 p-0 text-red-500 hover:text-red-600"
+                                      onClick={() => {
+                                        if (confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) {
+                                          fetch("/api/users", {
+                                            method: "DELETE",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ id: user.id }),
+                                          }).then((res) => { if (res.ok) fetchUsers(); });
+                                        }
+                                      }}
                                     >
                                       <Trash2 className="h-3.5 w-3.5" />
                                       <span className="sr-only">Supprimer</span>
@@ -2475,6 +2529,7 @@ export default function AdminDashboard() {
                                       variant="ghost"
                                       size="sm"
                                       className="h-8 w-8 p-0"
+                                      onClick={() => alert("Fonctionnalité de modification en cours de développement")}
                                     >
                                       <Edit className="h-3.5 w-3.5" />
                                       <span className="sr-only">Modifier</span>
@@ -2484,6 +2539,16 @@ export default function AdminDashboard() {
                                         variant="ghost"
                                         size="sm"
                                         className="h-8 w-8 p-0 text-blue-500"
+                                        onClick={async () => {
+                                          try {
+                                            const res = await fetch("/api/knowledge", {
+                                              method: "PUT",
+                                              headers: { "Content-Type": "application/json" },
+                                              body: JSON.stringify({ id: entry.id, status: "validated" }),
+                                            });
+                                            if (res.ok) fetchKnowledge();
+                                          } catch { /* silent */ }
+                                        }}
                                       >
                                         <Check className="h-3.5 w-3.5" />
                                         <span className="sr-only">Valider</span>
@@ -2493,6 +2558,14 @@ export default function AdminDashboard() {
                                       variant="ghost"
                                       size="sm"
                                       className="h-8 w-8 p-0 text-muted-foreground"
+                                      onClick={async () => {
+                                        if (confirm("Archiver cet article ?")) {
+                                          try {
+                                            const res = await fetch("/api/knowledge?id=" + entry.id, { method: "DELETE" });
+                                            if (res.ok) fetchKnowledge();
+                                          } catch { /* silent */ }
+                                        }
+                                      }}
                                     >
                                       <Archive className="h-3.5 w-3.5" />
                                       <span className="sr-only">Archiver</span>
@@ -2861,7 +2934,7 @@ export default function AdminDashboard() {
                             Total
                           </p>
                           <p className="text-2xl font-bold mt-1 bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent">
-                            {formatCurrency(billingStats.total)}
+                            {formatCurrency(realBillingStats?.total ?? billingStats.total)}
                           </p>
                         </div>
                         <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-lg shadow-emerald-500/20">
@@ -2879,7 +2952,7 @@ export default function AdminDashboard() {
                             En attente
                           </p>
                           <p className="text-2xl font-bold mt-1 bg-gradient-to-r from-yellow-600 to-amber-500 dark:from-yellow-400 dark:to-amber-300 bg-clip-text text-transparent">
-                            {formatCurrency(billingStats.pending)}
+                            {formatCurrency(realBillingStats?.pending ?? billingStats.pending)}
                           </p>
                         </div>
                         <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-gradient-to-br from-yellow-400 to-amber-600 shadow-lg shadow-amber-500/20">
@@ -2895,7 +2968,7 @@ export default function AdminDashboard() {
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Payé</p>
                           <p className="text-2xl font-bold mt-1 bg-gradient-to-r from-green-600 to-emerald-500 dark:from-green-400 dark:to-emerald-300 bg-clip-text text-transparent">
-                            {formatCurrency(billingStats.paid)}
+                            {formatCurrency(realBillingStats?.paid ?? billingStats.paid)}
                           </p>
                         </div>
                         <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-gradient-to-br from-green-400 to-emerald-600 shadow-lg shadow-green-500/20">
@@ -2913,7 +2986,7 @@ export default function AdminDashboard() {
                             Remboursé
                           </p>
                           <p className="text-2xl font-bold mt-1 bg-gradient-to-r from-rose-600 to-red-500 dark:from-rose-400 dark:to-red-300 bg-clip-text text-transparent">
-                            {formatCurrency(billingStats.refunded)}
+                            {formatCurrency(realBillingStats?.refunded ?? billingStats.refunded)}
                           </p>
                         </div>
                         <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-gradient-to-br from-rose-400 to-red-600 shadow-lg shadow-rose-500/20">

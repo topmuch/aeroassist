@@ -14,13 +14,17 @@ const floatingElements = [
 ];
 
 const stats = [
-  { icon: Users, value: "10K+", label: "Voyageurs" },
-  { icon: Clock, value: "24/7", label: "Disponible" },
-  { icon: Globe, value: "15", label: "Langues" },
-  { icon: Zap, value: "50+", label: "Services" },
+  { icon: Users, value: "24/7", label: "Disponible" },
+  { icon: Clock, value: "< 3s", label: "Temps de réponse" },
+  { icon: Globe, value: "4", label: "Langues supportées" },
+  { icon: Zap, value: "6", label: "Services IA" },
 ];
 
-export default function HeroSection() {
+interface HeroSectionProps {
+  onViewChange: (view: string) => void;
+}
+
+export default function HeroSection({ onViewChange }: HeroSectionProps) {
   return (
     <section
       id="accueil"
@@ -120,6 +124,7 @@ export default function HeroSection() {
         >
           <Button
             size="lg"
+            onClick={() => onViewChange("chat")}
             className="w-full sm:w-auto bg-[#25D366] hover:bg-[#20bd5a] text-white text-base px-8 py-6 rounded-xl shadow-xl shadow-[#25D366]/25 hover:shadow-2xl hover:shadow-[#25D366]/40 transition-all"
           >
             <MessageCircle className="size-5" />
@@ -128,6 +133,7 @@ export default function HeroSection() {
           <Button
             size="lg"
             variant="outline"
+            onClick={() => document.getElementById("services")?.scrollIntoView({ behavior: "smooth" })}
             className="w-full sm:w-auto border-emerald-500/30 bg-white/5 text-white hover:bg-white/10 hover:text-white text-base px-8 py-6 rounded-xl backdrop-blur-sm transition-all"
           >
             Explorer les Services

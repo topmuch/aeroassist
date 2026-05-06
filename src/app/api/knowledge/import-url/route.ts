@@ -144,6 +144,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Block private/internal IPs (SSRF protection)
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname;
+    const blockedPatterns = [
+      /^localhost$/i,
+      /^127\./,
+      /^10\./,
+      /^172\.(1[6-9]|2\d|3[0-1])\./,
+      /^192\.168\./,
+      /^169\.254\./,
+      /^0\./,
+      /^\[::1\]$/,
+      /^fc00:/i,
+      /^fe80:/i,
+    ];
+    if (blockedPatterns.some(pattern => pattern.test(hostname))) {
+      return NextResponse.json({ error: "URL non autorisée" }, { status: 400 });
+    }
+
     // Fetch the page
     const response = await fetchWithRetry(url);
 
