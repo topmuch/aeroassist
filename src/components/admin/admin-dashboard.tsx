@@ -49,6 +49,7 @@ import {
   Sun,
   Moon,
   Home,
+  Radio,
 } from "lucide-react";
 
 import { useTheme } from "next-themes";
@@ -541,6 +542,28 @@ function LoadingSpinner({ text = "Chargement..." }: { text?: string }) {
   );
 }
 
+function StatusBadge({ status, labelConnected = "Opérationnel", labelOffline = "Hors ligne" }: {
+  status?: string;
+  labelConnected?: string;
+  labelOffline?: string;
+}) {
+  const statusClasses = status === "up"
+    ? "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800"
+    : status === "degraded"
+      ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800"
+      : "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800";
+
+  const StatusIcon = status === "up" ? CheckCircle : status === "degraded" ? AlertTriangle : AlertCircle;
+  const label = status === "up" ? labelConnected : status === "degraded" ? "Dégradé" : labelOffline;
+
+  return (
+    <Badge className={statusClasses}>
+      <StatusIcon className="h-3 w-3 mr-1" />
+      {label}
+    </Badge>
+  );
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
@@ -668,6 +691,7 @@ export default function AdminDashboard() {
     services: {
       database: { status: string; latencyMs: number; details: string; error: string };
       ai: { status: string; latencyMs: number; details: string; error: string };
+      openbsp: { status: string; latencyMs: number; details: string; error: string };
       whatsapp: { status: string; latencyMs: number; details: string; error: string };
     };
     system: {
@@ -677,6 +701,13 @@ export default function AdminDashboard() {
     };
   } | null>(null);
   const [healthLoading, setHealthLoading] = useState(true);
+  const [whatsappTemplates, setWhatsappTemplates] = useState<Array<{
+    id: string; name: string; displayName: string; category: string; language: string; status: string;
+  }>>([]);
+  const [whatsappContacts, setWhatsappContacts] = useState<Array<{
+    id: string; phoneNumber: string; pushName: string | null; language: string; isOptIn: boolean;
+    isBlacklisted: boolean; messageCount: number; lastSeenAt: string;
+  }>>([]);
 
   // ─── Fetch: Analytics ───────────────────────────────────────────────────
   const fetchAnalytics = useCallback(async () => {
@@ -946,9 +977,26 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  // ─── Fetch: WhatsApp Templates & Contacts ──────────────────────────────
+  const fetchWhatsappData = useCallback(async () => {
+    try {
+      const [tplRes, cntRes] = await Promise.all([
+        fetch('/api/whatsapp/templates'),
+        fetch('/api/whatsapp/contacts'),
+      ]);
+      const tplData = await tplRes.json();
+      const cntData = await cntRes.json();
+      if (tplData.success) setWhatsappTemplates(tplData.data || []);
+      if (cntData.success) setWhatsappContacts(cntData.data || []);
+    } catch {
+      // WhatsApp data fetch failed
+    }
+  }, []);
+
   useEffect(() => {
     fetchHealth();
-  }, [fetchHealth]);
+    fetchWhatsappData();
+  }, [fetchHealth, fetchWhatsappData]);
 
   // Auto-refresh health every 30 seconds
   useEffect(() => {
@@ -3346,7 +3394,7 @@ export default function AdminDashboard() {
           {activeTab === "whatsapp" && (
             <div className="space-y-6">
               <div className="space-y-6">
-                {/* ─── A) WhatsApp Connection Status Panel ──────────────────────── */}
+                {/* ─── A) Connection Status Panel (4 cards) ───────────────────── */}
                 <div>
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <Activity className="h-5 w-5 text-emerald-500" />
@@ -3355,7 +3403,7 @@ export default function AdminDashboard() {
                   {healthLoading ? (
                     <LoadingSpinner text="Chargement de l'état de santé…" />
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       {/* Database Card */}
                       <Card className="border-l-4 border-l-emerald-500 premium-card">
                         <CardHeader className="pb-2">
@@ -3366,26 +3414,11 @@ export default function AdminDashboard() {
                         </CardHeader>
                         <CardContent className="space-y-2">
                           <div className="flex items-center gap-2">
-                            {healthData?.services.database.status === "up" ? (
-                              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Opérationnel
-                              </Badge>
-                            ) : healthData?.services.database.status === "degraded" ? (
-                              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800">
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                                Dégradé
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800">
-                                <AlertCircle className="h-3 w-3 mr-1" />
-                                Hors ligne
-                              </Badge>
-                            )}
+                            <StatusBadge status={healthData?.services.database.status} />
                           </div>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Clock className="h-3.5 w-3.5" />
-                            <span>Latence : {healthData?.services.database.latencyMs ?? "—"} ms</span>
+                            <span>{healthData?.services.database.latencyMs ?? "—"} ms</span>
                           </div>
                           {healthData?.services.database.details && (
                             <p className="text-xs text-muted-foreground">{healthData.services.database.details}</p>
@@ -3401,31 +3434,16 @@ export default function AdminDashboard() {
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm font-medium flex items-center gap-2">
                             <Zap className="h-4 w-4 text-teal-500" />
-                            Service IA
+                            Service IA (Groq)
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-2">
                           <div className="flex items-center gap-2">
-                            {healthData?.services.ai.status === "up" ? (
-                              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Opérationnel
-                              </Badge>
-                            ) : healthData?.services.ai.status === "degraded" ? (
-                              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800">
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                                Dégradé
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800">
-                                <AlertCircle className="h-3 w-3 mr-1" />
-                                Hors ligne
-                              </Badge>
-                            )}
+                            <StatusBadge status={healthData?.services.ai.status} />
                           </div>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Clock className="h-3.5 w-3.5" />
-                            <span>Latence : {healthData?.services.ai.latencyMs ?? "—"} ms</span>
+                            <span>{healthData?.services.ai.latencyMs ?? "—"} ms</span>
                           </div>
                           {healthData?.services.ai.details && (
                             <p className="text-xs text-muted-foreground">{healthData.services.ai.details}</p>
@@ -3436,36 +3454,46 @@ export default function AdminDashboard() {
                         </CardContent>
                       </Card>
 
-                      {/* WhatsApp API Card */}
-                      <Card className="border-l-4 border-l-green-500 premium-card">
+                      {/* OpenBSP Bridge Card */}
+                      <Card className="border-l-4 border-l-violet-500 premium-card">
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <MessageCircle className="h-4 w-4 text-green-500" />
-                            API WhatsApp
+                            <MessageCircle className="h-4 w-4 text-violet-500" />
+                            OpenBSP Bridge
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-2">
                           <div className="flex items-center gap-2">
-                            {healthData?.services.whatsapp.status === "up" ? (
-                              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Connecté
-                              </Badge>
-                            ) : healthData?.services.whatsapp.status === "degraded" ? (
-                              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800">
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                                Dégradé
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800">
-                                <AlertCircle className="h-3 w-3 mr-1" />
-                                Déconnecté
-                              </Badge>
-                            )}
+                            <StatusBadge status={healthData?.services.openbsp.status} labelConnected="Connecté" labelOffline="Déconnecté" />
                           </div>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Clock className="h-3.5 w-3.5" />
-                            <span>Latence : {healthData?.services.whatsapp.latencyMs ?? "—"} ms</span>
+                            <span>{healthData?.services.openbsp.latencyMs ?? "—"} ms</span>
+                          </div>
+                          {healthData?.services.openbsp.details && (
+                            <p className="text-xs text-muted-foreground">{healthData.services.openbsp.details}</p>
+                          )}
+                          {healthData?.services.openbsp.error && (
+                            <p className="text-xs text-red-500">{healthData.services.openbsp.error}</p>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      {/* WhatsApp Provider Card */}
+                      <Card className="border-l-4 border-l-green-500 premium-card">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium flex items-center gap-2">
+                            <Radio className="h-4 w-4 text-green-500" />
+                            WhatsApp Provider
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={healthData?.services.whatsapp.status} labelConnected="Actif" labelOffline="Inactif" />
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5" />
+                            <span>{healthData?.services.whatsapp.latencyMs ?? "—"} ms</span>
                           </div>
                           {healthData?.services.whatsapp.details && (
                             <p className="text-xs text-muted-foreground">{healthData.services.whatsapp.details}</p>
@@ -3479,211 +3507,76 @@ export default function AdminDashboard() {
                   )}
                 </div>
 
-                {/* ─── B) Webhook Configuration Panel ───────────────────────────── */}
+                {/* ─── B) Webhook Configuration (Meta + OpenBSP) ───────────────── */}
                 <Card className="premium-card">
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
                       <Link className="h-5 w-5 text-emerald-500" />
-                      Configuration du Webhook
+                      Configuration des Webhooks
                     </CardTitle>
                     <CardDescription>
-                      Configuration du webhook Meta pour la réception des messages WhatsApp
+                      Endpoints de réception des messages WhatsApp (Meta Cloud API & OpenBSP)
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">URL du Webhook</Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          readOnly
-                          value="/api/webhook/whatsapp"
-                          className="bg-muted font-mono text-sm"
-                        />
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => navigator.clipboard.writeText("/api/webhook/whatsapp")}
-                          title="Copier l'URL"
-                        >
-                          <FileText className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">WHATSAPP_ACCESS_TOKEN :</span>
-                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
-                          <Check className="h-3 w-3 mr-1" />
-                          Configuré
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">WHATSAPP_VERIFY_TOKEN :</span>
-                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
-                          <Check className="h-3 w-3 mr-1" />
-                          Configuré
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Info className="h-4 w-4 text-emerald-600" />
-                        <span className="text-sm font-medium">Statut de vérification</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Meta vérifie le webhook en envoyant une requête <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">GET</code> avec un{" "}
-                        <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">hub.mode=subscribe</code>,{" "}
-                        <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">hub.verify_token</code> et{" "}
-                        <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">hub.challenge</code>.
-                        Le serveur valide le token et renvoie la valeur <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">hub.challenge</code> pour confirmer la propriété.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* ─── C) Edge Case Handling Panel ──────────────────────────────── */}
-                <Card className="premium-card">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-amber-500" />
-                      Gestion des cas limites
-                    </CardTitle>
-                    <CardDescription>
-                      Comportement du système face aux messages inhabituels
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[220px]">Cas</TableHead>
-                          <TableHead>Réponse du système</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        <TableRow>
-                          <TableCell className="font-medium">Message vide</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/20 dark:text-teal-400 dark:border-teal-800 mr-2">
-                              Redirection
-                            </Badge>
-                            <span className="text-sm text-muted-foreground">Redirection avec exemples</span>
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="font-medium">Images / Vidéos / Audio</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800 mr-2">
-                              Non supporté
-                            </Badge>
-                            <span className="text-sm text-muted-foreground">Message type non supporté</span>
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="font-medium">Timeout Groq</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800 mr-2">
-                              Fallback
-                            </Badge>
-                            <span className="text-sm text-muted-foreground">Fallback FAQ statique</span>
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="font-medium">Base de connaissances vide</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800 mr-2">
-                              Avertissement
-                            </Badge>
-                            <span className="text-sm text-muted-foreground">Réponse sans hallucination + avertissement</span>
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="font-medium">Messages très longs (&gt;4000 car.)</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 mr-2">
-                              Limitation
-                            </Badge>
-                            <span className="text-sm text-muted-foreground">Demande de raccourcir</span>
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="font-medium">Messages de localisation</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/20 dark:text-cyan-400 dark:border-cyan-800 mr-2">
-                              Info
-                            </Badge>
-                            <span className="text-sm text-muted-foreground">Demande de précision</span>
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-
-                {/* ─── D) Security Panel ────────────────────────────────────────── */}
-                <Card className="premium-card">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Shield className="h-5 w-5 text-emerald-500" />
-                      Mesures de sécurité
-                    </CardTitle>
-                    <CardDescription>
-                      Protection implémentée pour les endpoints WhatsApp
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-start gap-3 rounded-lg border p-4">
-                        <Shield className="h-5 w-5 text-emerald-500 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium">Vérification HMAC-SHA256</p>
+                      {/* OpenBSP Webhook */}
+                      <div className="rounded-lg border p-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-900/30 dark:text-violet-400 dark:border-violet-800 text-xs">
+                            OpenBSP
+                          </Badge>
+                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 text-xs">
+                            Principal
+                          </Badge>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">URL du Webhook</Label>
+                          <div className="flex items-center gap-2">
+                            <Input readOnly value="/api/webhook/openbsp" className="bg-muted font-mono text-xs h-8" />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Secret</Label>
+                          <div className="flex items-center gap-2">
+                            <Input readOnly value={healthData?.services.openbsp.status === "up" ? "••••••••••" : "Non configuré"} className="bg-muted font-mono text-xs h-8" type="password" />
+                            <Badge className="text-xs shrink-0" variant={process.env.NODE_ENV === "production" ? "default" : "outline"}>
+                              {process.env.NODE_ENV === "production" ? "Configuré" : "Dev"}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="rounded bg-muted/30 p-2">
                           <p className="text-xs text-muted-foreground">
-                            Signature des webhooks Meta vérifiée via HMAC-SHA256 pour garantir l&apos;authenticité de chaque requête entrante.
+                            Port 3001 • Self-hosted • Temps réel • Sessions multiples
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-start gap-3 rounded-lg border p-4">
-                        <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium">Limitation de débit (Rate Limiting)</p>
-                          <p className="text-xs text-muted-foreground">
-                            200 requêtes/minute maximum pour le webhook afin de prévenir les abus et les attaques DDoS.
-                          </p>
+                      {/* Meta Webhook */}
+                      <div className="rounded-lg border p-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 text-xs">
+                            Meta Cloud
+                          </Badge>
+                          <Badge className="bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-800 text-xs">
+                            Fallback
+                          </Badge>
                         </div>
-                      </div>
-                      <div className="flex items-start gap-3 rounded-lg border p-4">
-                        <Eye className="h-5 w-5 text-teal-500 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium">Filtrage des PII dans les logs</p>
-                          <p className="text-xs text-muted-foreground">
-                            Les données personnelles identifiables (numéros de téléphone, adresses) sont masquées automatiquement dans les journaux.
-                          </p>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">URL du Webhook</Label>
+                          <div className="flex items-center gap-2">
+                            <Input readOnly value="/api/webhook/whatsapp" className="bg-muted font-mono text-xs h-8" />
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-start gap-3 rounded-lg border p-4">
-                        <Globe className="h-5 w-5 text-blue-500 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium">En-têtes de sécurité</p>
-                          <p className="text-xs text-muted-foreground">
-                            CSP, HSTS, X-Frame-Options, X-Content-Type-Options configurés sur tous les endpoints API.
-                          </p>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Verify Token</Label>
+                          <div className="flex items-center gap-2">
+                            <Input readOnly value="aeroassist_verify_2024" className="bg-muted font-mono text-xs h-8" type="password" />
+                            <Badge className="text-xs shrink-0" variant="outline">Configuré</Badge>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-start gap-3 rounded-lg border p-4">
-                        <CheckCircle className="h-5 w-5 text-emerald-500 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium">Validation des entrées (Zod)</p>
+                        <div className="rounded bg-muted/30 p-2">
                           <p className="text-xs text-muted-foreground">
-                            Tous les payloads entrants sont validés avec des schémas Zod pour prévenir les injections et données malformées.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3 rounded-lg border p-4">
-                        <Lock className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium">CORS strict</p>
-                          <p className="text-xs text-muted-foreground">
-                            Politique CORS restrictive limitant l&apos;accès aux origines autorisées uniquement.
+                            HMAC-SHA256 • Templates natifs • Production
                           </p>
                         </div>
                       </div>
@@ -3691,42 +3584,216 @@ export default function AdminDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* ─── E) Rate Limiting Monitor ──────────────────────────────────── */}
+                {/* ─── C) WhatsApp Templates Panel ─────────────────────────── */}
+                <Card className="premium-card">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-violet-500" />
+                      Templates WhatsApp
+                    </CardTitle>
+                    <CardDescription>
+                      Gestion des templates de messages automatisés ({whatsappTemplates.length} templates)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[180px]">Nom</TableHead>
+                            <TableHead>Catégorie</TableHead>
+                            <TableHead>Langue</TableHead>
+                            <TableHead>Statut</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {whatsappTemplates.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                                Aucun template configuré
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            whatsappTemplates.map((tpl) => (
+                              <TableRow key={tpl.id}>
+                                <TableCell className="font-medium text-sm">{tpl.displayName}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="text-xs">
+                                    {tpl.category}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-sm uppercase">{tpl.language}</TableCell>
+                                <TableCell>
+                                  <Badge
+                                    className={`text-xs ${
+                                      tpl.status === "approved" ? "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400" :
+                                      tpl.status === "submitted" ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                                      "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400"
+                                    }`}
+                                  >
+                                    {tpl.status === "approved" ? "✅ Approuvé" : tpl.status === "submitted" ? "⏳ Soumis" : "📝 Brouillon"}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* ─── D) Contacts Panel ─────────────────────────────────────── */}
+                <Card className="premium-card">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Users className="h-5 w-5 text-teal-500" />
+                      Contacts WhatsApp
+                    </CardTitle>
+                    <CardDescription>
+                      Gestion des contacts et consentements RGPD ({whatsappContacts.length} contacts)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Contact</TableHead>
+                            <TableHead>Langue</TableHead>
+                            <TableHead>Opt-in</TableHead>
+                            <TableHead>Statut</TableHead>
+                            <TableHead className="text-right">Messages</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {whatsappContacts.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
+                                Aucun contact enregistré
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            whatsappContacts.map((c) => (
+                              <TableRow key={c.id}>
+                                <TableCell>
+                                  <div>
+                                    <p className="text-sm font-medium">{c.pushName || c.phoneNumber}</p>
+                                    <p className="text-xs text-muted-foreground">{c.phoneNumber}</p>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-sm uppercase">{c.language}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={`text-xs ${c.isOptIn ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400" : "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400"}`}>
+                                    {c.isOptIn ? "✅ Oui" : "❌ Non"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {c.isBlacklisted ? (
+                                    <Badge className="bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 text-xs">
+                                      🚫 Bloqué
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 text-xs">
+                                      Actif
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right text-sm">{c.messageCount}</TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* ─── E) Edge Cases + Security ──────────────────────────────── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Edge Case Handling */}
+                  <Card className="premium-card">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-amber-500" />
+                        Gestion des cas limites
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        {[
+                          { cas: "Message vide", reponse: "Redirection avec exemples", badge: "Redirection", badgeClass: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/20 dark:text-teal-400 dark:border-teal-800" },
+                          { cas: "Média (image/vidéo/audio)", reponse: "Type non supporté", badge: "Non supporté", badgeClass: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800" },
+                          { cas: "Timeout Groq IA", reponse: "Fallback FAQ statique", badge: "Fallback", badgeClass: "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800" },
+                          { cas: "Message >4000 car.", reponse: "Demande de raccourcir", badge: "Limitation", badgeClass: "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800" },
+                          { cas: "Contact blacklisté", reponse: "Message bloqué silencieusement", badge: "Bloqué", badgeClass: "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/20 dark:text-gray-400 dark:border-gray-800" },
+                          { cas: "Numéro invalide", reponse: "Rejet avec statut invalid_phone", badge: "Validation", badgeClass: "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/20 dark:text-cyan-400 dark:border-cyan-800" },
+                        ].map((item) => (
+                          <div key={item.cas} className="flex items-center justify-between rounded border p-2">
+                            <span className="font-medium text-xs">{item.cas}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground hidden sm:inline">{item.reponse}</span>
+                              <Badge variant="outline" className={`text-xs shrink-0 ${item.badgeClass}`}>{item.badge}</Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Security Panel */}
+                  <Card className="premium-card">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Shield className="h-5 w-5 text-emerald-500" />
+                        Mesures de sécurité
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 gap-3">
+                        {[
+                          { icon: Shield, label: "Secret OpenBSP", desc: "Vérification timing-safe du header X-OpenBSP-Secret", color: "text-violet-500" },
+                          { icon: AlertCircle, label: "Rate Limiting", desc: "200 req/min webhook, 20 req/min par téléphone", color: "text-amber-500" },
+                          { icon: Eye, label: "Filtrage PII", desc: "Numéros de téléphone masqués dans les logs", color: "text-teal-500" },
+                          { icon: Lock, label: "E.164 Validation", desc: "Validation des numéros internationaux (8-15 chiffres)", color: "text-red-500" },
+                          { icon: CheckCircle, label: "RGPD Compliance", desc: "Opt-in/out, blacklist, consentement tracking", color: "text-emerald-500" },
+                          { icon: Globe, label: "Security Headers", desc: "CSP, HSTS, X-Frame-Options sur tous les endpoints", color: "text-blue-500" },
+                        ].map((item) => (
+                          <div key={item.label} className="flex items-start gap-3 rounded-lg border p-3">
+                            <item.icon className={`h-4 w-4 mt-0.5 shrink-0 ${item.color}`} />
+                            <div>
+                              <p className="text-xs font-medium">{item.label}</p>
+                              <p className="text-xs text-muted-foreground">{item.desc}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* ─── F) Rate Limiting Monitor ──────────────────────────────── */}
                 <Card className="premium-card">
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
                       <BarChart3 className="h-5 w-5 text-emerald-500" />
                       Moniteur de limitation de débit
                     </CardTitle>
-                    <CardDescription>
-                      Configuration actuelle des limites de requêtes
-                    </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="rounded-lg border p-4 text-center space-y-1">
-                          <p className="text-2xl font-bold text-emerald-600">200</p>
-                          <p className="text-xs text-muted-foreground">req/min</p>
-                          <p className="text-sm font-medium">Webhook WhatsApp</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {[
+                        { value: "200", unit: "req/min", label: "Webhook", color: "text-violet-600" },
+                        { value: "20", unit: "req/min", label: "Par téléphone", color: "text-red-600" },
+                        { value: "100", unit: "req/15min", label: "API default", color: "text-teal-600" },
+                        { value: "20", unit: "req/min", label: "Mode strict", color: "text-amber-600" },
+                      ].map((item) => (
+                        <div key={item.label} className="rounded-lg border p-3 text-center space-y-1">
+                          <p className={`text-xl font-bold ${item.color}`}>{item.value}</p>
+                          <p className="text-xs text-muted-foreground">{item.unit}</p>
+                          <p className="text-xs font-medium">{item.label}</p>
                         </div>
-                        <div className="rounded-lg border p-4 text-center space-y-1">
-                          <p className="text-2xl font-bold text-teal-600">100</p>
-                          <p className="text-xs text-muted-foreground">req/15 min</p>
-                          <p className="text-sm font-medium">API par défaut</p>
-                        </div>
-                        <div className="rounded-lg border p-4 text-center space-y-1">
-                          <p className="text-2xl font-bold text-red-600">20</p>
-                          <p className="text-xs text-muted-foreground">req/min</p>
-                          <p className="text-sm font-medium">Mode strict</p>
-                        </div>
-                      </div>
-                      <div className="rounded-lg border bg-muted/30 p-3">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Info className="h-4 w-4 text-emerald-600" />
-                          Les limites sont appliquées par adresse IP. En cas de dépassement, un code HTTP 429 est renvoyé avec un en-tête <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">Retry-After</code>.
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>

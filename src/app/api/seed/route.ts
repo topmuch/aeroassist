@@ -14,6 +14,8 @@ export async function POST() {
     await db.module.deleteMany();
     await db.systemConfig.deleteMany();
     await db.user.deleteMany();
+    await db.whatsAppTemplate.deleteMany();
+    await db.whatsAppContact.deleteMany();
 
     // ── 1. Seed Users ──────────────────────────────────────────
     const users = await Promise.all([
@@ -727,6 +729,141 @@ export async function POST() {
       }),
     ]);
 
+    // ── 10. Seed WhatsApp Templates ────────────────────────────
+    const whatsappTemplates = await Promise.all([
+      db.whatsAppTemplate.create({
+        data: {
+          name: 'flight_status_update',
+          displayName: '✈️ Mise à jour de vol',
+          category: 'UTILITY',
+          language: 'fr',
+          status: 'approved',
+          bodyText: '✈️ *AeroAssist — Mise à jour de vol*\n\nVol : {{1}}\nCompagnie : {{2}}\nDépart : {{3}} → {{4}}\nHeure prévue : {{5}}\nPorte : {{6}}\nTerminal : {{7}}\nStatut : {{8}}\n\n_Retrouvez plus d\'infos en envoyant le numéro de vol._',
+          components: JSON.stringify([
+            { type: 'body', parameters: [{ type: 'text', text: 'AF1234' }] },
+          ]),
+        },
+      }),
+      db.whatsAppTemplate.create({
+        data: {
+          name: 'booking_confirmation',
+          displayName: '📋 Confirmation de réservation',
+          category: 'UTILITY',
+          language: 'fr',
+          status: 'approved',
+          bodyText: '📋 *Confirmation de réservation*\n\nRéf : {{1}}\nType : {{2}}\nDate : {{3}}\nDétails : {{4}}\nMontant : {{5}}€\n\n✅ Réservation confirmée !\n_Contactez-nous pour toute modification._',
+          components: JSON.stringify([
+            { type: 'body', parameters: [{ type: 'text', text: 'VIP-2024-001' }] },
+          ]),
+        },
+      }),
+      db.whatsAppTemplate.create({
+        data: {
+          name: 'payment_receipt',
+          displayName: '🧾 Reçu de paiement',
+          category: 'AUTHENTICATION',
+          language: 'fr',
+          status: 'approved',
+          bodyText: '🧾 *Reçu de paiement*\n\nRéf : {{1}}\nMontant : {{2}}€\nDate : {{3}}\nMode : {{4}}\nStatut : *Payé* ✅\n\n_Merci pour votre confiance !_',
+          components: JSON.stringify([
+            { type: 'body', parameters: [{ type: 'text', text: 'PAY-001' }] },
+          ]),
+        },
+      }),
+      db.whatsAppTemplate.create({
+        data: {
+          name: 'welcome_message',
+          displayName: '👋 Message de bienvenue',
+          category: 'MARKETING',
+          language: 'fr',
+          status: 'approved',
+          bodyText: '👋 *Bienvenue sur AeroAssist !*\n\nVotre assistant aéroport pour CDG et ORY.\n\nComment puis-je vous aider ?\n\n1️⃣ Statut de vol\n2️⃣ Restaurants\n3️⃣ Boutiques\n4️⃣ Transports\n5️⃣ Réservations\n\n_Tapez votre question ou un numéro !_',
+          components: JSON.stringify([]),
+        },
+      }),
+      db.whatsAppTemplate.create({
+        data: {
+          name: 'delay_notification',
+          displayName: '⏰ Notification de retard',
+          category: 'UTILITY',
+          language: 'fr',
+          status: 'submitted',
+          bodyText: '⏰ *Notification de retard*\n\nVol : {{1}}\nRetard estimé : {{2}}\nNouvelle heure : {{3}}\nPorte : {{4}}\n\n_Nous vous tiendrons informé de toute évolution._',
+          components: JSON.stringify([
+            { type: 'body', parameters: [{ type: 'text', text: 'U28543' }] },
+          ]),
+        },
+      }),
+      db.whatsAppTemplate.create({
+        data: {
+          name: 'boarding_reminder',
+          displayName: '🚶 Rappel d\'embarquement',
+          category: 'UTILITY',
+          language: 'fr',
+          status: 'approved',
+          bodyText: '🚶 *Rappel d\'embarquement*\n\nVol : {{1}}\nPorte : {{2}}\nTerminal : {{3}}\nEmbarquement à : {{4}}\n\n⚠️ *Rendez-vous à la porte dès maintenant !*\n_Pensez à votre carte d\'embarquement et pièce d\'identité._',
+          components: JSON.stringify([
+            { type: 'body', parameters: [{ type: 'text', text: 'AF1234' }] },
+          ]),
+        },
+      }),
+    ]);
+
+    // ── 11. Seed WhatsApp Contacts ─────────────────────────────
+    const whatsappContacts = await Promise.all([
+      db.whatsAppContact.create({
+        data: {
+          phoneNumber: '+33612345678',
+          pushName: 'Marie Dupont',
+          language: 'fr',
+          isOptIn: true,
+          messageCount: 12,
+          lastSeenAt: new Date(),
+        },
+      }),
+      db.whatsAppContact.create({
+        data: {
+          phoneNumber: '+447890123456',
+          pushName: 'Sarah Johnson',
+          language: 'en',
+          isOptIn: true,
+          messageCount: 8,
+          lastSeenAt: new Date(Date.now() - 1800000),
+        },
+      }),
+      db.whatsAppContact.create({
+        data: {
+          phoneNumber: '+33634567890',
+          pushName: 'Aisha Benali',
+          language: 'fr',
+          isOptIn: true,
+          messageCount: 5,
+          lastSeenAt: new Date(Date.now() - 3600000),
+        },
+      }),
+      db.whatsAppContact.create({
+        data: {
+          phoneNumber: '+34612345678',
+          pushName: 'Carlos Rodriguez',
+          language: 'es',
+          isOptIn: true,
+          messageCount: 3,
+          lastSeenAt: new Date(Date.now() - 86400000),
+        },
+      }),
+      db.whatsAppContact.create({
+        data: {
+          phoneNumber: '+33698765432',
+          pushName: 'Spam Bot',
+          language: 'fr',
+          isOptIn: false,
+          isBlacklisted: true,
+          messageCount: 45,
+          lastSeenAt: new Date(Date.now() - 172800000),
+        },
+      }),
+    ]);
+
     return NextResponse.json({
       success: true,
       message: 'Database seeded successfully with demo data',
@@ -741,6 +878,8 @@ export async function POST() {
         analyticsEvents: analyticsEvents.length,
         systemConfigs: 6,
         auditLogs: 4,
+        whatsappTemplates: whatsappTemplates.length,
+        whatsappContacts: whatsappContacts.length,
       },
     });
   } catch (error) {

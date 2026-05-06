@@ -351,7 +351,8 @@ export async function sendTemplateMessage(
   phone: string,
   templateName: string,
   languageCode = 'fr',
-  components?: Array<Record<string, unknown>>
+  components?: Array<Record<string, unknown>>,
+  parameters?: string[]
 ): Promise<SendMessageResult> {
   const provider = getProvider();
 
@@ -359,9 +360,31 @@ export async function sendTemplateMessage(
     return sendTemplateViaMeta(phone, templateName, languageCode, components);
   }
 
-  // OpenBSP templates — not yet supported, send as formatted text instead
-  logWebhookEvent('template_fallback', { templateName, provider });
-  return sendViaOpenBSP(phone, `[Template: ${templateName}] — Fonctionnalité à venir via OpenBSP.`);
+  // OpenBSP: look up template from DB, substitute parameters, send as formatted text
+  try {
+    const { db } = await import('./db');
+    const template = await db.whatsAppTemplate.findUnique({
+      where: { name: templateName },
+    });
+
+    if (template?.bodyText) {
+      let bodyText = template.bodyText;
+      if (parameters) {
+        parameters.forEach((param, idx) => {
+          bodyText = bodyText.replace(new RegExp(`\\{\\{${idx + 1}\\}\\}`, 'g'), param);
+        });
+      }
+      logWebhookEvent('template_sent_openbsp', { templateName, phone: redactPhone(phone), parameters: parameters?.length || 0 });
+      return sendViaOpenBSP(phone, bodyText);
+    }
+
+    // Template not found in DB, send generic
+    logWebhookEvent('template_not_found', { templateName, provider });
+    return sendViaOpenBSP(phone, `[Template: ${templateName}] — Template introuvable.`);
+  } catch (error) {
+    logSecurityEvent('template_db_error', { error: error instanceof Error ? error.message : String(error) });
+    return sendViaOpenBSP(phone, `[Template: ${templateName}] — Erreur de chargement.`);
+  }
 }
 
 // ── Public API: Send Interactive Buttons ───────────────────────

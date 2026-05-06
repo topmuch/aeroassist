@@ -401,7 +401,10 @@ async function handleSimulateIncoming(body: unknown): Promise<Response> {
 
     const response = await fetch(AEROASSIST_WEBHOOK_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-OpenBSP-Secret": process.env.AEROASSIST_WEBHOOK_SECRET || process.env.OPENBSP_WEBHOOK_SECRET || "aeroassist_secret_2024",
+      },
       body: JSON.stringify(webhookPayload),
     });
 
