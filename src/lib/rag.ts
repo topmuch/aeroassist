@@ -1,41 +1,57 @@
 /**
- * AeroAssist — RAG Service (Retrieval-Augmented Generation)
- * Searches the knowledge base for relevant context before AI generation.
+ * AeroAssist — RAG Service (Retrieval-Augmented Generation) v2
+ * Dual-mode retrieval:
+ *   1. PostgreSQL + pgvector: Cosine similarity search on embeddings
+ *   2. SQLite / Fallback: Keyword-based matching with relevance scoring
  *
- * Uses SQLite full-text search via Prisma ORM.
- * In production with PostgreSQL, this would use pgvector embeddings.
+ * The service automatically detects the database backend and uses
+ * the appropriate search strategy.
  */
 
 import { db } from './db';
+import { generateEmbedding, cosineSimilarity, isPgVectorAvailable } from './embedding';
 import logger from './logger';
 
 // ── Types ────────────────────────────────────────────────────────
 
+export interface RAGChunk {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  source?: string | null;
+  relevanceScore: number;
+  distance?: number;       // Cosine distance (pgvector only)
+  method: 'pgvector' | 'keyword';
+}
+
 export interface RAGResult {
-  entries: Array<{
-    id: string;
-    title: string;
-    content: string;
-    category: string;
-    relevanceScore: number;
-  }>;
-  context: string;       // Formatted context for AI prompt
+  chunks: RAGChunk[];
+  context: string;
   totalFound: number;
   searchTimeMs: number;
+  method: 'pgvector' | 'keyword';
+}
+
+export interface RAGSearchParams {
+  query: string;
+  intent?: string;
+  maxResults?: number;
+  category?: string;
+  minScore?: number;
+  airportCode?: string;
 }
 
 // ── Category Mapping ────────────────────────────────────────────
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  flights: ['vol', 'vols', 'flight', 'départ', 'arrivée', 'retard', 'annulé', 'gate', 'embarquement', 'atterrissage', 'aéroport'],
+  flights: ['vol', 'vols', 'flight', 'départ', 'arrivée', 'retard', 'annulé', 'gate', 'embarquement', 'atterrissage', 'aéroport', 'terminal', 'porte'],
   restaurants: ['restaurant', 'restaurants', 'manger', 'repas', 'café', 'dîner', 'déjeuner', 'gastronomie', 'boire', 'faim', 'soif'],
   services: ['service', 'services', 'wifi', 'vip', 'salon', 'consigne', 'bagage', 'toilette', 'détente', 'douane', 'sécurité', 'zone'],
   shops: ['boutique', 'boutiques', 'duty free', 'shopping', 'acheter', 'magasin', 'achat', 'soldes', 'cadeau', 'promotion'],
   transport: ['transport', 'taxi', 'bus', 'rer', 'navette', 'parking', 'voiture', 'train', 'métro', 'location', 'accès'],
   general: ['aide', 'help', 'information', 'contact', 'problème', 'plainte', 'réclamation'],
 };
-
-// ── Intent to Category Mapping ──────────────────────────────────
 
 const INTENT_CATEGORY_MAP: Record<string, string> = {
   flight_status: 'flights',
@@ -48,11 +64,11 @@ const INTENT_CATEGORY_MAP: Record<string, string> = {
   complaint: 'general',
 };
 
-// ── Search Knowledge Base ──────────────────────────────────────
+// ── Main: Search Knowledge Base ─────────────────────────────────
 
 /**
  * Main RAG retrieval function.
- * Searches published knowledge base entries for relevant context.
+ * Automatically uses pgvector (PostgreSQL) or keyword matching (SQLite).
  */
 export async function searchKnowledgeBase(
   query: string,
@@ -60,100 +76,214 @@ export async function searchKnowledgeBase(
   options?: { maxResults?: number; category?: string }
 ): Promise<RAGResult> {
   const start = Date.now();
-  const maxResults = options?.maxResults || 5;
-  const categoryHint = options?.category || (intent ? INTENT_CATEGORY_MAP[intent] : null);
+  const params: RAGSearchParams = {
+    query,
+    intent,
+    maxResults: options?.maxResults || 5,
+    category: options?.category,
+  };
 
   try {
-    // Extract keywords from query
-    const keywords = extractKeywords(query);
-
-    if (keywords.length === 0) {
-      return {
-        entries: [],
-        context: '',
-        totalFound: 0,
-        searchTimeMs: Date.now() - start,
-      };
+    // Determine search method
+    if (isPgVectorAvailable()) {
+      return await searchWithPgVector(params);
     }
-
-    // Build search conditions
-    const searchConditions = [
-      // Search by title
-      ...keywords.slice(0, 5).map((kw) => ({
-        title: { contains: kw },
-      })),
-      // Search by content
-      ...keywords.slice(0, 5).map((kw) => ({
-        content: { contains: kw },
-      })),
-    ];
-
-    // Build conditions array — keywords are ALWAYS required
-    const conditions: Record<string, unknown>[] = [];
-
-    if (searchConditions.length > 0) {
-      conditions.push({ OR: searchConditions });
-    }
-
-    // Category is an additional AND filter (not OR — fixes bypass issue)
-    if (categoryHint && categoryHint !== 'general') {
-      conditions.push({ category: categoryHint });
-    }
-
-    // Build the final where clause
-    const whereClause: Record<string, unknown> = {
-      status: 'published',
-      ...(conditions.length > 0 ? { AND: conditions } : {}),
-    };
-
-    const entries = await db.knowledgeBaseEntry.findMany({
-      where: whereClause,
-      take: maxResults * 2, // Fetch more for re-ranking
-      orderBy: { updatedAt: 'desc' },
-    });
-
-    // Re-rank by relevance score
-    const scored = entries.map((entry) => ({
-      id: entry.id,
-      title: entry.title,
-      content: entry.content,
-      category: entry.category,
-      relevanceScore: calculateRelevance(query, entry, keywords, categoryHint),
-    }));
-
-    // Sort by relevance and take top results
-    scored.sort((a, b) => b.relevanceScore - a.relevanceScore);
-    const topResults = scored.slice(0, maxResults).filter((r) => r.relevanceScore > 0);
-
-    // Build formatted context for AI
-    const context = topResults.length > 0
-      ? topResults
-          .map((r) => `## ${r.title}\n${r.content.slice(0, 500)}${r.content.length > 500 ? '...' : ''}`)
-          .join('\n\n')
-      : '';
-
-    return {
-      entries: topResults,
-      context: context ? `Voici les informations pertinentes de notre base de connaissances :\n\n${context}` : '',
-      totalFound: entries.length,
-      searchTimeMs: Date.now() - start,
-    };
+    return await searchWithKeywords(params);
   } catch (error) {
-    logger.error('RAG search failed', {
+    logger.error('RAG search failed, falling back to keywords', {
       error: error instanceof Error ? error.message : String(error),
       query: query.slice(0, 100),
     });
 
-    return {
-      entries: [],
-      context: '',
-      totalFound: 0,
-      searchTimeMs: Date.now() - start,
-    };
+    // Fallback to keyword search if pgvector fails
+    try {
+      return await searchWithKeywords(params);
+    } catch (fallbackError) {
+      logger.error('RAG keyword fallback also failed', {
+        error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+      });
+      return {
+        chunks: [],
+        context: '',
+        totalFound: 0,
+        searchTimeMs: Date.now() - start,
+        method: 'keyword',
+      };
+    }
   }
 }
 
-// ── Category Detection from Query ──────────────────────────────
+// ── pgvector Search (PostgreSQL) ───────────────────────────────
+
+async function searchWithPgVector(params: RAGSearchParams): Promise<RAGResult> {
+  const start = Date.now();
+  const maxResults = params.maxResults || 5;
+
+  // Generate embedding for the query
+  const embedResult = await generateEmbedding(params.query);
+  const queryVector = embedResult.embedding;
+
+  // Convert vector to PostgreSQL format: '[0.1, 0.2, ...]'
+  const vectorStr = `[${queryVector.map((v) => v.toFixed(8)).join(',')}]`;
+
+  // Build dynamic SQL with optional filters
+  const conditions: string[] = ["status = 'published'"];
+  const values: unknown[] = [vectorStr];
+
+  if (params.category) {
+    values.push(params.category);
+    conditions.push(`category = $${values.length}::text`);
+  }
+
+  const whereClause = conditions.join(' AND ');
+
+  // Use raw SQL for pgvector cosine distance operator (<=>)
+  const sql = `
+    SELECT id, title, content, category, source,
+           embedding <=> $1::vector AS distance
+    FROM knowledge_base_entries
+    WHERE ${whereClause}
+    ORDER BY distance ASC
+    LIMIT $${values.length + 1};
+  `;
+  values.push(maxResults);
+
+  try {
+    const results = await db.$queryRawUnsafe<
+      Array<{
+        id: string;
+        title: string;
+        content: string;
+        category: string;
+        source: string | null;
+        distance: number;
+      }>
+    >(sql, ...values);
+
+    const chunks: RAGChunk[] = results.map((r) => ({
+      id: r.id,
+      title: r.title,
+      content: r.content.slice(0, 1000) + (r.content.length > 1000 ? '...' : ''),
+      category: r.category,
+      source: r.source,
+      relevanceScore: 1 - r.distance, // Convert distance to similarity
+      distance: r.distance,
+      method: 'pgvector' as const,
+    }));
+
+    // Filter by minimum score
+    const minScore = params.minScore || 0.1;
+    const filtered = chunks.filter((c) => c.relevanceScore >= minScore);
+
+    const context = buildContext(filtered);
+
+    logger.info('pgvector RAG search completed', {
+      queryLength: params.query.length,
+      resultsCount: results.length,
+      filteredCount: filtered.length,
+      timeMs: Date.now() - start,
+      topDistance: results[0]?.distance?.toFixed(4),
+    });
+
+    return {
+      chunks: filtered,
+      context,
+      totalFound: results.length,
+      searchTimeMs: Date.now() - start,
+      method: 'pgvector',
+    };
+  } catch (error) {
+    logger.warn('pgvector search failed, falling back', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return searchWithKeywords(params);
+  }
+}
+
+// ── Keyword Search (SQLite / Fallback) ─────────────────────────
+
+async function searchWithKeywords(params: RAGSearchParams): Promise<RAGResult> {
+  const start = Date.now();
+  const maxResults = params.maxResults || 5;
+  const categoryHint = params.category || (params.intent ? INTENT_CATEGORY_MAP[params.intent] : null);
+
+  // Extract keywords
+  const keywords = extractKeywords(params.query);
+
+  if (keywords.length === 0) {
+    return {
+      chunks: [],
+      context: '',
+      totalFound: 0,
+      searchTimeMs: Date.now() - start,
+      method: 'keyword',
+    };
+  }
+
+  // Build search conditions
+  const searchConditions = [
+    ...keywords.slice(0, 5).map((kw) => ({ title: { contains: kw } })),
+    ...keywords.slice(0, 5).map((kw) => ({ content: { contains: kw } })),
+  ];
+
+  const conditions: Record<string, unknown>[] = [];
+  if (searchConditions.length > 0) {
+    conditions.push({ OR: searchConditions });
+  }
+
+  if (categoryHint && categoryHint !== 'general') {
+    conditions.push({ category: categoryHint });
+  }
+
+  const whereClause: Record<string, unknown> = {
+    status: 'published',
+    ...(conditions.length > 0 ? { AND: conditions } : {}),
+  };
+
+  const entries = await db.knowledgeBaseEntry.findMany({
+    where: whereClause,
+    take: maxResults * 2,
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  // Score and rank
+  const scored: RAGChunk[] = entries.map((entry) => ({
+    id: entry.id,
+    title: entry.title,
+    content: entry.content.slice(0, 1000) + (entry.content.length > 1000 ? '...' : ''),
+    category: entry.category,
+    source: entry.source,
+    relevanceScore: calculateRelevance(params.query, entry, keywords, categoryHint),
+    method: 'keyword' as const,
+  }));
+
+  scored.sort((a, b) => b.relevanceScore - a.relevanceScore);
+  const topResults = scored.filter((r) => r.relevanceScore > 0).slice(0, maxResults);
+
+  const context = buildContext(topResults);
+
+  return {
+    chunks: topResults,
+    context,
+    totalFound: entries.length,
+    searchTimeMs: Date.now() - start,
+    method: 'keyword',
+  };
+}
+
+// ── Context Builder ─────────────────────────────────────────────
+
+function buildContext(chunks: RAGChunk[]): string {
+  if (chunks.length === 0) return '';
+
+  const formatted = chunks
+    .map((c, i) => `[${i + 1}] ${c.title}\n${c.content}`)
+    .join('\n\n---\n\n');
+
+  return `Voici les informations pertinentes de notre base de connaissances :\n\n${formatted}`;
+}
+
+// ── Category Detection ──────────────────────────────────────────
 
 export function detectCategory(query: string): string | null {
   const lower = query.toLowerCase();
@@ -176,7 +306,6 @@ export function detectCategory(query: string): string | null {
 function extractKeywords(text: string): string[] {
   return text
     .toLowerCase()
-    // Remove diacritics for better matching
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^\w\s]/g, ' ')
@@ -184,7 +313,7 @@ function extractKeywords(text: string): string[] {
     .filter((w) => w.length > 2 && !isStopWord(w));
 }
 
-// ── Stop Words (French + English) ───────────────────────────────
+// ── Stop Words ──────────────────────────────────────────────────
 
 function isStopWord(word: string): boolean {
   const stopWords = new Set([
@@ -203,7 +332,7 @@ function isStopWord(word: string): boolean {
   return stopWords.has(word);
 }
 
-// ── Relevance Scoring ──────────────────────────────────────────
+// ── Relevance Scoring (keyword-based) ───────────────────────────
 
 function calculateRelevance(
   query: string,

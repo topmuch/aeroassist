@@ -262,8 +262,8 @@ export async function processAssistantMessage(
     model,
     intent,
     language,
-    ragUsed: rag.entries.length > 0,
-    ragEntries: rag.entries.length,
+    ragUsed: rag.chunks.length > 0,
+    ragEntries: rag.chunks.length,
     responseTimeMs: Date.now() - start,
   };
 }
