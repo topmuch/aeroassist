@@ -1,0 +1,112 @@
+{
+  "templates": [
+    {
+      "name": "aeroassist_flight_status_update",
+      "category": "UTILITY",
+      "language": "fr",
+      "language_policy": "deterministic",
+      "components": [
+        {
+          "type": "header",
+          "format": "TEXT",
+          "text": "✈️ Mise à jour de vol"
+        },
+        {
+          "type": "body",
+          "text": "Bonjour,\n\nVoici les informations de votre vol :\n\n• Vol : {{1}}\n• Départ : {{2}}\n• Arrivée : {{3}}\n• Statut : {{4}}\n• Porte : {{5}}\n• Terminal : {{6}}\n\nNous vous recommandons d'arriver à l'aéroport au moins 2h avant votre départ.\n\nAeroAssist ✈️"
+        }
+      ]
+    },
+    {
+      "name": "aeroassist_booking_confirmation",
+      "category": "UTILITY",
+      "language": "fr",
+      "language_policy": "deterministic",
+      "components": [
+        {
+          "type": "header",
+          "format": "TEXT",
+          "text": "✅ Réservation confirmée"
+        },
+        {
+          "type": "body",
+          "text": "Bonjour,\n\nVotre réservation a bien été confirmée :\n\n• Référence : {{1}}\n• Type de service : {{2}}\n• Date : {{3}}\n• Lieu : {{4}}\n• Montant : {{5}}\n\nUn email de confirmation avec votre facture a été envoyé à votre adresse.\n\nMerci pour votre confiance !\nAeroAssist ✈️"
+        }
+      ]
+    },
+    {
+      "name": "aeroassist_payment_receipt",
+      "category": "UTILITY",
+      "language": "fr",
+      "language_policy": "deterministic",
+      "components": [
+        {
+          "type": "header",
+          "format": "TEXT",
+          "text": "💰 Paiement reçu"
+        },
+        {
+          "type": "body",
+          "text": "Bonjour,\n\nNous confirmons la bonne réception de votre paiement :\n\n• Référence : {{1}}\n• Montant : {{2}}\n• Date : {{3}}\n• Service : {{4}}\n\nVotre facture est disponible dans votre espace client.\n\nMerci pour votre confiance !\nAeroAssist ✈️"
+        }
+      ]
+    },
+    {
+      "name": "aeroassist_vip_lounge_invite",
+      "category": "MARKETING",
+      "language": "fr",
+      "language_policy": "deterministic",
+      "components": [
+        {
+          "type": "header",
+          "format": "TEXT",
+          "text": "🛋️ Invitation Salon VIP"
+        },
+        {
+          "type": "body",
+          "text": "Cher voyageur,\n\nVous êtes cordialement invité à profiter de notre salon VIP :\n\n• Date : {{1}}\n• Terminal : {{2}}\n• Durée d'accès : {{3}}\n• Type d'accès : {{4}}\n\nProfitez de nos prestations haut de gamme : buffet, boissons, WiFi haut débit, zones de détente et douches.\n\nPrésentez ce message à l'entrée du salon.\n\nBon voyage !\nAeroAssist ✈️"
+        },
+        {
+          "type": "button",
+          "sub_type": "url",
+          "text": "Découvrir le salon",
+          "url": "https://aeroassist.fr/vip"
+        }
+      ]
+    },
+    {
+      "name": "aeroassist_hotel_booking_confirm",
+      "category": "UTILITY",
+      "language": "fr",
+      "language_policy": "deterministic",
+      "components": [
+        {
+          "type": "header",
+          "format": "TEXT",
+          "text": "🏨 Réservation d'hôtel confirmée"
+        },
+        {
+          "type": "body",
+          "text": "Bonjour,\n\nVotre réservation d'hôtel a été confirmée :\n\n• Hôtel : {{1}}\n• Date d'arrivée : {{2}}\n• Date de départ : {{3}}\n• Chambre : {{4}}\n• Référence : {{5}}\n\nVeuillez présenter cette confirmation lors de votre arrivée.\nUn email détaillé avec les informations d'accès vous sera envoyé.\n\nBon séjour !\nAeroAssist ✈️"
+        }
+      ]
+    },
+    {
+      "name": "aeroassist_car_rental_confirm",
+      "category": "UTILITY",
+      "language": "fr",
+      "language_policy": "deterministic",
+      "components": [
+        {
+          "type": "header",
+          "format": "TEXT",
+          "text": "🚗 Location de véhicule confirmée"
+        },
+        {
+          "type": "body",
+          "text": "Bonjour,\n\nVotre location de véhicule a été confirmée :\n\n• Véhicule : {{1}}\n• Date de début : {{2}}\n• Date de fin : {{3}}\n• Lieu de retrait : {{4}}\n• Référence : {{5}}\n\nPensez à présenter votre permis de conduire et une carte bancaire au point de retrait.\n\nBon trajet !\nAeroAssist ✈️"
+        }
+      ]
+    }
+  ]
+}

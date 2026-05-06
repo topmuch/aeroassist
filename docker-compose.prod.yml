@@ -1,0 +1,212 @@
+# =============================================================================
+# AeroAssist — Production Docker Compose
+# =============================================================================
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Requires a .env file in the project root with all environment variables.
+# See docs/DEPLOYMENT-PRODUCTION.md for the full variable list.
+# =============================================================================
+
+services:
+  # ─── PostgreSQL 16 with pgvector ───────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: aeroassist_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aeroassist_db}
+      POSTGRES_USER: ${POSTGRES_USER:-aeroassist}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aeroassist} -d ${POSTGRES_DB:-aeroassist_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ─── Redis 7 (Cache & Session Store) ──────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: aeroassist_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+        --appendonly yes
+        --appendfsync everysec
+        --requirepass ${REDIS_PASSWORD:-aeroassist_redis_2024}
+        --loglevel warning
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-aeroassist_redis_2024}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ─── AeroAssist Backend (Next.js) ────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://aeroassist.fr}
+    container_name: aeroassist_backend
+    restart: unless-stopped
+    environment:
+      # ── App ──
+      NODE_ENV: production
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://aeroassist.fr}
+      PORT: 3000
+      HOSTNAME: "0.0.0.0"
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?ADMIN_API_KEY is required}
+
+      # ── Database (PostgreSQL) ──
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aeroassist}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aeroassist_db}?schema=public&connection_limit=20&pool_timeout=30
+
+      # ── Redis ──
+      REDIS_URL: redis://:${REDIS_PASSWORD:-aeroassist_redis_2024}@redis:6379/0
+
+      # ── AI / LLM ──
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      GROQ_MAX_RETRIES: ${GROQ_MAX_RETRIES:-3}
+      GROQ_TIMEOUT_MS: ${GROQ_TIMEOUT_MS:-15000}
+
+      # ── WhatsApp (Meta Cloud API — no OpenBSP in prod) ──
+      META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
+      META_WHATSAPP_ACCESS_TOKEN: ${META_WHATSAPP_ACCESS_TOKEN:-}
+      META_WHATSAPP_PHONE_NUMBER_ID: ${META_WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_API_VERSION: ${WHATSAPP_API_VERSION:-v21.0}
+
+      # ── Stripe ──
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-https://aeroassist.fr/success}
+      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:-https://aeroassist.fr/cancel}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
+
+      # ── Security ──
+      JWT_SECRET: ${JWT_SECRET:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://aeroassist.fr}
+
+      # ── Logging ──
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # ── No OpenBSP in production ──
+      OPENBSP_API_URL: ""
+    ports:
+      - "3000:3000"
+    volumes:
+      - logs:/app/logs
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "10"
+
+  # ─── Nginx Reverse Proxy + TLS Termination ───────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: aeroassist_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/prod.conf:/etc/nginx/nginx.conf:ro
+      - certbot-www:/var/www/certbot:ro
+      - nginx-certs:/etc/letsencrypt:ro
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      backend:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ─── Certbot (Let's Encrypt Certificate Management) ──────────────────
+  certbot:
+    image: certbot/certbot
+    container_name: aeroassist_certbot
+    volumes:
+      - certbot-www:/var/www/certbot
+      - nginx-certs:/etc/letsencrypt
+    entrypoint: >
+      /bin/sh -c 'trap exit TERM;
+      while :; do
+        certbot renew;
+        sleep 12h & wait $${!};
+      done;'
+
+# =============================================================================
+# Named Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  logs:
+    driver: local
+  uploads:
+    driver: local
+  certbot-www:
+    driver: local
+  nginx-certs:
+    driver: local
+  nginx-logs:
+    driver: local
