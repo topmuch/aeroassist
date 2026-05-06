@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/security';
 
 const flightQuerySchema = z.object({
   type: z.enum(['departures', 'arrivals']).optional(),
@@ -162,6 +163,9 @@ function generateMockFlights() {
 }
 
 export async function GET(request: NextRequest) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(request.url);
     const queryParams = {

@@ -68,6 +68,7 @@ interface KnowledgeTabProps {
   page: number;
   setPage: (v: number) => void;
   onFetchKnowledge: () => void;
+  authHeaders: Record<string, string>;
 }
 
 export default function KnowledgeTab({
@@ -83,6 +84,7 @@ export default function KnowledgeTab({
   page,
   setPage,
   onFetchKnowledge,
+  authHeaders,
 }: KnowledgeTabProps) {
   // Add article dialog state
   const [kbDialogOpen, setKbDialogOpen] = useState(false);
@@ -118,7 +120,7 @@ export default function KnowledgeTab({
     try {
       const res = await fetch("/api/knowledge", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
           title: newKbTitle.trim(),
           content: newKbContent.trim(),
@@ -148,7 +150,7 @@ export default function KnowledgeTab({
     try {
       const res = await fetch("/api/knowledge/import-url", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
           url: importUrl,
           category: importUrlCategory,
@@ -203,6 +205,7 @@ export default function KnowledgeTab({
 
       const res = await fetch("/api/knowledge/import-pdf", {
         method: "POST",
+        headers: { ...authHeaders },
         body: formData,
       });
       const result = await res.json();
@@ -673,7 +676,7 @@ export default function KnowledgeTab({
                                   try {
                                     const res = await fetch("/api/knowledge", {
                                       method: "PUT",
-                                      headers: { "Content-Type": "application/json" },
+                                      headers: { ...authHeaders, "Content-Type": "application/json" },
                                       body: JSON.stringify({ id: entry.id, status: "validated" }),
                                     });
                                     if (res.ok) onFetchKnowledge();
@@ -691,7 +694,7 @@ export default function KnowledgeTab({
                               onClick={async () => {
                                 if (confirm("Archiver cet article ?")) {
                                   try {
-                                    const res = await fetch("/api/knowledge?id=" + entry.id, { method: "DELETE" });
+                                    const res = await fetch("/api/knowledge?id=" + entry.id, { method: "DELETE", headers: authHeaders });
                                     if (res.ok) onFetchKnowledge();
                                   } catch { /* silent */ }
                                 }
@@ -798,7 +801,7 @@ export default function KnowledgeTab({
                 if (editKbContent.trim()) body.content = editKbContent;
                 const res = await fetch("/api/knowledge", {
                   method: "PUT",
-                  headers: { "Content-Type": "application/json" },
+                  headers: { ...authHeaders, "Content-Type": "application/json" },
                   body: JSON.stringify(body),
                 });
                 if (res.ok) { setEditKbEntry(null); onFetchKnowledge(); }

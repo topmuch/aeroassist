@@ -46,3 +46,39 @@ Stage Summary:
 - Configuration Nginx production-ready avec rate limiting et sécurité
 - Tous les scripts de démarrage, health check et wait-for-it créés
 - Vérification complète: lint clean, compilation clean, health UP, tous API endpoints fonctionnels
+
+---
+Task ID: 3
+Agent: Main Orchestrator + 2 sub-agents
+Task: Audit réel dans les dev logs + autocritique + correction des bugs
+
+Work Log:
+- Démarrage du dev server, vérification des logs de compilation (0 erreurs)
+- Test systématique de TOUS les 16 endpoints API (GET/POST)
+- Découverte BUG CRITIQUE: middleware.ts déprécié dans Next.js 16, ne s'exécute PAS
+  → Toutes les API /api/users, /api/flights, etc. étaient ouvertes sans authentification
+- Création de requireAuth() dans src/lib/security.ts (per-route auth guard)
+- Ajout de requireAuth dans 10 fichiers de routes API (23 handlers protégés)
+- Fix de analytics/route.ts et modules/route.ts (ajout param request manquant)
+- Découverte BUG MAJEUR: Dashboard fetch() sans Authorization header
+  → Ajout de authHeaders dans admin-dashboard.tsx (14 fetch calls)
+  → Ajout de authHeaders dans users-tab.tsx (4 fetch calls)
+  → Ajout de authHeaders dans knowledge-tab.tsx (6 fetch calls)
+- Exposition de NEXT_PUBLIC_ADMIN_API_KEY dans .env pour le dashboard client-side
+- Re-test complet après corrections
+
+Stage Summary:
+- 3 bugs trouvés et corrigés:
+  1. 🔴 CRITIQUE: Middleware auth ne marchait pas → requireAuth dans chaque route
+  2. 🟠 MAJEUR: Dashboard fetches sans auth → Authorization headers ajoutés
+  3. 🟡 MOYEN: analytics + modules GET manquaient param request → corrigé
+- Résultats vérifiés dans les dev logs:
+  - /api/users SANS auth → 401 ✅
+  - /api/users AVEC auth → 200 ✅
+  - /api/health (public) → 200 ✅
+  - /api/chat (public) → 200 ✅
+  - /api/flights SANS auth → 401 ✅
+  - /api/webhook/openbsp (public) → 200 ✅
+  - ESLint: 0 erreurs
+  - Compilation: 0 erreurs
+  - 0 erreurs dans les dev logs (hors prisma:query et security warnings normaux)

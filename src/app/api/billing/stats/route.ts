@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/security';
 
 // ── Validation Schema ──────────────────────────────────────────
 
@@ -11,6 +12,8 @@ const billingStatsQuerySchema = z.object({
 // ── GET: Billing statistics with real SQL aggregations ──────────
 
 export async function GET(request: NextRequest) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
   const traceId = crypto.randomUUID?.() || `trace_${Date.now()}`;
 
   try {

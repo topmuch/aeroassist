@@ -5,10 +5,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getSecurityHeaders, withSecurityHeaders, startTimer } from '@/lib/security';
+import { getSecurityHeaders, withSecurityHeaders, startTimer, requireAuth } from '@/lib/security';
 
 // GET: List contacts
 export async function GET(request: NextRequest) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
   const timer = startTimer();
 
   try {
@@ -53,6 +55,9 @@ export async function GET(request: NextRequest) {
 
 // POST: Opt-in/Opt-out/Blacklist
 export async function POST(request: NextRequest) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const { phoneNumber, action } = body;

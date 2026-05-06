@@ -186,12 +186,16 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [whatsappTemplates, setWhatsappTemplates] = useState<import("./types").WhatsAppTemplate[]>([]);
   const [whatsappContacts, setWhatsappContacts] = useState<import("./types").WhatsAppContact[]>([]);
 
+  // ─── API Auth ────────────────────────────────────────────────────────────
+  const API_KEY = process.env.NEXT_PUBLIC_ADMIN_API_KEY || '';
+  const authHeaders: Record<string, string> = API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {};
+
   // ─── Fetch functions ────────────────────────────────────────────────────
 
   const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
     try {
-      const res = await fetch("/api/analytics");
+      const res = await fetch("/api/analytics", { headers: authHeaders });
       const data = await res.json();
       if (data.success) setAnalytics(data.data);
     } catch { /* silent */ } finally {
@@ -208,7 +212,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       });
       if (userSearch) params.set("search", userSearch);
       if (userRoleFilter !== "all") params.set("role", userRoleFilter);
-      const res = await fetch(`/api/users?${params}`);
+      const res = await fetch(`/api/users?${params}`, { headers: authHeaders });
       const data = await res.json();
       if (data.success) {
         setUsers(data.data);
@@ -221,7 +225,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
   const fetchBillingStats = useCallback(async () => {
     try {
-      const res = await fetch("/api/billing/stats");
+      const res = await fetch("/api/billing/stats", { headers: authHeaders });
       const data = await res.json();
       if (data.success) setRealBillingStats(data.data);
     } catch { /* silent */ }
@@ -237,7 +241,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       if (kbSearch) params.set("search", kbSearch);
       if (kbCategoryFilter !== "all") params.set("category", kbCategoryFilter);
       if (kbStatusFilter !== "all") params.set("status", kbStatusFilter);
-      const res = await fetch(`/api/knowledge?${params}`);
+      const res = await fetch(`/api/knowledge?${params}`, { headers: authHeaders });
       const data = await res.json();
       if (data.success) {
         setKnowledge(data.data);
@@ -251,7 +255,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const fetchModules = useCallback(async () => {
     setModulesLoading(true);
     try {
-      const res = await fetch("/api/modules");
+      const res = await fetch("/api/modules", { headers: authHeaders });
       const data = await res.json();
       if (data.success && data.data.length > 0) {
         const iconMap: Record<string, React.ReactNode> = {
@@ -292,7 +296,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       if (flightFilter === "depart") params.set("type", "departures");
       else if (flightFilter === "arrivee") params.set("type", "arrivals");
       if (flightSearch) params.set("search", flightSearch);
-      const res = await fetch(`/api/flights?${params}`);
+      const res = await fetch(`/api/flights?${params}`, { headers: authHeaders });
       const data = await res.json();
       if (data.success) setFlights(data.data);
     } catch { /* silent */ } finally {
@@ -309,7 +313,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       });
       if (billingStatusFilter !== "all") params.set("paymentStatus", billingStatusFilter);
       if (billingTypeFilter !== "all") params.set("type", billingTypeFilter);
-      const res = await fetch(`/api/reservations?${params}`);
+      const res = await fetch(`/api/reservations?${params}`, { headers: authHeaders });
       const data = await res.json();
       if (data.success) {
         setReservations(data.data);
@@ -323,7 +327,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const fetchAiConfig = useCallback(async () => {
     setAiConfigLoading(true);
     try {
-      const res = await fetch("/api/ai/config");
+      const res = await fetch("/api/ai/config", { headers: authHeaders });
       const data = await res.json();
       if (data.success && data.data) {
         if (data.data.model_name) setSelectedModel(data.data.model_name);
@@ -353,7 +357,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setAiLogsLoading(true);
     try {
       const p = page || aiLogsPage;
-      const res = await fetch(`/api/ai/logs?page=${p}&limit=${aiLogsPerPage}`);
+      const res = await fetch(`/api/ai/logs?page=${p}&limit=${aiLogsPerPage}`, { headers: authHeaders });
       const data = await res.json();
       if (data.success && data.data) {
         setAiLogs(data.data.logs);
@@ -378,8 +382,8 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const fetchWhatsappData = useCallback(async () => {
     try {
       const [tplRes, cntRes] = await Promise.all([
-        fetch('/api/whatsapp/templates'),
-        fetch('/api/whatsapp/contacts'),
+        fetch('/api/whatsapp/templates', { headers: authHeaders }),
+        fetch('/api/whatsapp/contacts', { headers: authHeaders }),
       ]);
       const tplData = await tplRes.json();
       const cntData = await cntRes.json();
@@ -504,7 +508,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       try {
         const res = await fetch("/api/modules", {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: { ...authHeaders, "Content-Type": "application/json" },
           body: JSON.stringify({ id: moduleId, isActive: newStatus }),
         });
         if (!res.ok) {
@@ -554,7 +558,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       });
       const res = await fetch("/api/modules", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({ id: selectedModule.id, config: configData, isActive: selectedModule.statut }),
       });
       if (res.ok) {
@@ -579,7 +583,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
     try {
       const res = await fetch("/api/ai/config", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify(config),
       });
       if (res.ok) {
@@ -733,6 +737,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
               setPage={setUserPage}
               onFetchUsers={fetchUsers}
               onSetUsers={setUsers}
+              authHeaders={authHeaders}
             />
           )}
           {activeTab === "knowledge" && (
@@ -749,6 +754,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
               page={kbPage}
               setPage={setKbPage}
               onFetchKnowledge={fetchKnowledge}
+              authHeaders={authHeaders}
             />
           )}
           {activeTab === "ai" && (

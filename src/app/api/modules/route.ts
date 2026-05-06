@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/security';
 
 // ── Validation Schemas ──────────────────────────────────────────
 
@@ -29,7 +30,10 @@ const updateModuleSchema = z.object({
 
 // ── GET: List all modules ──────────────────────────────────────
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   try {
     const modules = await db.module.findMany({
       orderBy: { createdAt: 'asc' },
@@ -52,6 +56,9 @@ export async function GET() {
 // ── POST: Create a new module ──────────────────────────────────
 
 export async function POST(request: NextRequest) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const parsed = createModuleSchema.safeParse(body);
@@ -98,6 +105,9 @@ export async function POST(request: NextRequest) {
 // ── PUT: Update module (toggle status AND/OR update config) ─────
 
 export async function PUT(request: NextRequest) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const parsed = updateModuleSchema.safeParse(body);

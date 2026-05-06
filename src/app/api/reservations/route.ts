@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/security';
 
 // ── Validation Schemas ──────────────────────────────────────────
 
@@ -26,6 +27,9 @@ const reservationQuerySchema = z.object({
 // ── GET: List reservations ─────────────────────────────────────
 
 export async function GET(request: NextRequest) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(request.url);
     const queryParams = {
@@ -95,6 +99,9 @@ export async function GET(request: NextRequest) {
 // ── POST: Create a new reservation ─────────────────────────────
 
 export async function POST(request: NextRequest) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const parsed = createReservationSchema.safeParse(body);

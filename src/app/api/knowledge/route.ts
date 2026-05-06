@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/security';
 
 // ── Validation Schemas ──────────────────────────────────────────
 
@@ -40,6 +41,9 @@ const knowledgeQuerySchema = z.object({
 // ── GET: List knowledge base entries ───────────────────────────
 
 export async function GET(request: NextRequest) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(request.url);
     const queryParams = {
@@ -109,6 +113,9 @@ export async function GET(request: NextRequest) {
 // ── POST: Create a new knowledge base entry ────────────────────
 
 export async function POST(request: NextRequest) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const parsed = createEntrySchema.safeParse(body);
@@ -149,6 +156,9 @@ export async function POST(request: NextRequest) {
 // ── PUT: Update a knowledge base entry ─────────────────────────
 
 export async function PUT(request: NextRequest) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const { id, ...updateData } = body;
@@ -203,6 +213,9 @@ export async function PUT(request: NextRequest) {
 // ── DELETE: Archive a knowledge base entry ──────────────────────
 
 export async function DELETE(request: NextRequest) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

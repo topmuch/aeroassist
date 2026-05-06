@@ -242,6 +242,49 @@ export function startTimer(): () => number {
   return () => Number(process.hrtime.bigint() - start) / 1_000_000; // returns ms
 }
 
+// ── API Key Authentication (per-route, since middleware is deprecated in Next.js 16) ──
+
+/**
+ * Check if the request has a valid admin API key.
+ * Returns null if authenticated, or a 401 response if not.
+ *
+ * Usage in route handlers:
+ *   const authError = requireAuth(request);
+ *   if (authError) return authError;
+ */
+export function requireAuth(request: NextRequest): NextResponse | null {
+  const adminKey = process.env.ADMIN_API_KEY;
+
+  // No key configured = open (dev mode)
+  if (!adminKey) return null;
+
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader || authHeader !== `Bearer ${adminKey}`) {
+    logSecurityEvent('api_auth_failed', {
+      endpoint: request.nextUrl.pathname,
+      hasAuthHeader: !!authHeader,
+    });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  return null;
+}
+
+/**
+ * Check seed secret for /api/seed endpoint.
+ * Returns null if valid, or a 403 response if not.
+ */
+export function requireSeedSecret(request: NextRequest): NextResponse | null {
+  if (process.env.NODE_ENV !== 'production') return null;
+
+  const seedSecret = request.headers.get('x-seed-secret');
+  if (seedSecret !== process.env.SEED_SECRET) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  return null;
+}
+
 // ── Exported rate limit configs for reuse ────────────────────────
 
 export { DEFAULT_RATE_LIMIT, STRICT_RATE_LIMIT, WEBHOOK_RATE_LIMIT };

@@ -57,6 +57,7 @@ interface UsersTabProps {
   setPage: (v: number) => void;
   onFetchUsers: () => void;
   onSetUsers: React.Dispatch<React.SetStateAction<ApiUser[]>>;
+  authHeaders: Record<string, string>;
 }
 
 export default function UsersTab({
@@ -71,6 +72,7 @@ export default function UsersTab({
   setPage,
   onFetchUsers,
   onSetUsers,
+  authHeaders,
 }: UsersTabProps) {
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [newUserName, setNewUserName] = useState("");
@@ -99,7 +101,7 @@ export default function UsersTab({
     try {
       const res = await fetch("/api/users", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({ id: editUser.id, name: editUserName, email: editUserEmail, phone: editUserPhone || null, role: editUserRole }),
       });
       if (res.ok) {
@@ -253,7 +255,7 @@ export default function UsersTab({
                       try {
                         const res = await fetch("/api/users", {
                           method: "POST",
-                          headers: { "Content-Type": "application/json" },
+                          headers: { ...authHeaders, "Content-Type": "application/json" },
                           body: JSON.stringify({ name: newUserName, email: newUserEmail, phone: newUserPhone || null, role: newUserRole, language: "fr" }),
                         });
                         if (res.ok) {
@@ -326,7 +328,7 @@ export default function UsersTab({
                               try {
                                 await fetch("/api/users", {
                                   method: "PATCH",
-                                  headers: { "Content-Type": "application/json" },
+                                  headers: { ...authHeaders, "Content-Type": "application/json" },
                                   body: JSON.stringify({ id: user.id, isActive: checked }),
                                 });
                               } catch {
@@ -356,7 +358,7 @@ export default function UsersTab({
                                 if (confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) {
                                   fetch("/api/users", {
                                     method: "DELETE",
-                                    headers: { "Content-Type": "application/json" },
+                                    headers: { ...authHeaders, "Content-Type": "application/json" },
                                     body: JSON.stringify({ id: user.id }),
                                   }).then((res) => { if (res.ok) onFetchUsers(); });
                                 }

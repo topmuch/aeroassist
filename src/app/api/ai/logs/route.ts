@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/security';
 
 // ── Validation Schemas ──────────────────────────────────────────
 
@@ -17,6 +18,8 @@ const aiLogsQuerySchema = z.object({
 // ── GET: AI interaction logs from Message table ─────────────────
 
 export async function GET(request: NextRequest) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
   const traceId = crypto.randomUUID?.() || `trace_${Date.now()}`;
 
   try {
