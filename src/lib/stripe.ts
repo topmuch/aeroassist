@@ -11,6 +11,7 @@
 
 import { db } from './db';
 import logger from './logger';
+import { getInvoiceData, generateInvoiceHtml, storeInvoice } from './invoice-generator';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -110,7 +111,7 @@ export function getPublicConfig(): { publishableKey: string; isConfigured: boole
 
 // ── Stripe API Helper ───────────────────────────────────────────
 
-async function stripeRequest(
+export async function stripeRequest(
   path: string,
   options: {
     method?: string;
@@ -400,12 +401,102 @@ export async function processWebhookEvent(event: Record<string, unknown>): Promi
         return { processed: true, eventType };
       }
 
+      case 'payment_intent.succeeded': {
+        // Direct PaymentIntent succeeded — update reservation and generate invoice
+        const metadata = data.metadata as Record<string, string> | undefined;
+        const userId = metadata?.userId;
+        const reference = metadata?.reference;
+        const piId = data.id as string;
+
+        if (reference) {
+          const reservation = await db.reservation.findUnique({
+            where: { reference },
+          });
+
+          if (reservation) {
+            await db.reservation.update({
+              where: { id: reservation.id },
+              data: {
+                status: 'confirmed',
+                paymentStatus: 'paid',
+                paidAt: new Date(),
+              },
+            });
+
+            // Generate and store the invoice
+            try {
+              const invoiceData = await getInvoiceData(reservation.id);
+              if (invoiceData) {
+                const html = generateInvoiceHtml(invoiceData);
+                await storeInvoice(reservation.id, html);
+              }
+            } catch (invoiceErr) {
+              // Non-fatal: log but don't fail the webhook
+              logger.error('Invoice generation failed after PaymentIntent success', {
+                reservationId: reservation.id,
+                error: invoiceErr instanceof Error ? invoiceErr.message : String(invoiceErr),
+              });
+            }
+
+            logger.info('Reservation confirmed via PaymentIntent', {
+              reservationId: reservation.id,
+              reference,
+              paymentIntentId: piId,
+              userId,
+            });
+
+            return { processed: true, eventType, reservationId: reservation.id };
+          }
+        }
+
+        // Fallback: no matching reservation found, log and acknowledge
+        logger.warn('PaymentIntent succeeded but no matching reservation found', {
+          paymentIntentId: piId,
+          userId,
+          reference,
+        });
+
+        return { processed: true, eventType };
+      }
+
       case 'payment_intent.payment_failed': {
-        // Payment failed — log for analytics
+        // Direct PaymentIntent failed — update the reservation
+        const metadata = data.metadata as Record<string, string> | undefined;
+        const reference = metadata?.reference;
+        const piId = data.id as string;
+        const lastPaymentError = data.last_payment_error as Record<string, unknown> | undefined;
+
+        if (reference) {
+          const reservation = await db.reservation.findUnique({
+            where: { reference },
+          });
+
+          if (reservation) {
+            await db.reservation.update({
+              where: { id: reservation.id },
+              data: {
+                status: 'cancelled',
+                paymentStatus: 'failed',
+              },
+            });
+
+            logger.warn('Reservation cancelled due to PaymentIntent failure', {
+              reservationId: reservation.id,
+              reference,
+              paymentIntentId: piId,
+              errorMessage: lastPaymentError?.message,
+            });
+
+            return { processed: true, eventType, reservationId: reservation.id };
+          }
+        }
+
+        // Fallback: log for analytics if no reservation matched
         logger.warn('Stripe payment failed', {
-          paymentIntentId: data.id,
+          paymentIntentId: piId,
           amount: data.amount,
           currency: data.currency,
+          errorMessage: lastPaymentError?.message,
         });
 
         return { processed: true, eventType };

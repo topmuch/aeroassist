@@ -1,0 +1,68 @@
+global:
+  resolve_timeout: 5m
+
+# Route alerts to appropriate channels based on severity
+route:
+  group_by: ['alertname', 'severity', 'team']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'default'
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'slack-critical'
+      group_wait: 10s
+      repeat_interval: 30m
+      routes:
+        - match:
+            team: integrations
+          receiver: 'slack-integrations'
+        - match:
+            team: billing
+          receiver: 'slack-billing'
+
+    # Warning alerts - less urgent
+    - match:
+        severity: warning
+      receiver: 'slack-warnings'
+      repeat_interval: 2h
+
+# Notification templates
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+receivers:
+  - name: 'default'
+    webhook_configs:
+      - url: 'http://localhost:3000/api/webhook/alertmanager'
+        send_resolved: true
+
+  - name: 'slack-critical'
+    webhook_configs:
+      - url: '${SLACK_CRITICAL_WEBHOOK_URL}'
+        send_resolved: true
+
+  - name: 'slack-warnings'
+    webhook_configs:
+      - url: '${SLACK_WARNINGS_WEBHOOK_URL}'
+        send_resolved: true
+
+  - name: 'slack-integrations'
+    webhook_configs:
+      - url: '${SLACK_INTEGRATIONS_WEBHOOK_URL}'
+        send_resolved: true
+
+  - name: 'slack-billing'
+    webhook_configs:
+      - url: '${SLACK_BILLING_WEBHOOK_URL}'
+        send_resolved: true
+
+# Inhibition rules to suppress redundant alerts
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']

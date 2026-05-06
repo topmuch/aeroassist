@@ -1,0 +1,82 @@
+groups:
+  - name: aeroassist_alerts
+    rules:
+      # High error rate alert
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "High error rate detected ({{ $value | humanizePercentage }})"
+          description: "Error rate has exceeded 1% for the last 2 minutes. Current rate: {{ $value | humanizePercentage }}"
+          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#error-rate-above-1"
+
+      # P95 latency alert
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, endpoint)
+          ) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "P95 latency above 2s"
+          description: "P95 response latency has been above 2 seconds for 5 minutes on endpoint {{ $labels.endpoint }}"
+          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#latency-p95-above-2s"
+
+      # WhatsApp provider down
+      - alert: WhatsAppProviderDown
+        expr: up{job="aeroassist_app"} == 0 or whatsapp_provider_status == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: integrations
+        annotations:
+          summary: "WhatsApp provider is unreachable"
+          description: "WhatsApp Business API provider has been down for 1 minute. All WhatsApp messaging is affected."
+          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#whatsapp-provider-down"
+
+      # Stripe payment failure spike
+      - alert: StripePaymentFailures
+        expr: |
+          sum(rate(stripe_payment_failures_total[10m])) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          team: billing
+        annotations:
+          summary: "Stripe payment failure rate is elevated"
+          description: "Stripe payment failures are occurring at {{ $value }} failures/sec. Investigate webhook connectivity and Stripe dashboard."
+          runbook_url: "https://github.com/aeroassist/docs/blob/main/README-RUNBOOK.md#stripe-payment-failures"
+
+      # Application unreachable
+      - alert: AppDown
+        expr: up{job="aeroassist_app"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "AeroAssist application is down"
+          description: "The Next.js application has been unreachable for 30 seconds."
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Memory usage above 85%"
+          description: "System memory usage is at {{ $value | humanizePercentage }}. Consider scaling or investigating memory leaks."

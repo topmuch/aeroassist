@@ -3,10 +3,11 @@
  * Generates 384-dimensional vector embeddings for RAG retrieval.
  *
  * Strategy:
- * - Production (PostgreSQL + pgvector): Uses real semantic embeddings
- * - Development (SQLite): Generates pseudo-embeddings via hash distribution
+ * - Development (NODE_ENV != production): Uses hash_fallback by default (fast, no API needed)
+ * - Production (NODE_ENV == production): Uses real Groq embeddings via z-ai-web-dev-sdk.
+ *   If the API fails, an error is thrown — no silent fallback in production.
  *
- * The embedding dimension is 384 to match all-MiniLM-L6-v2 / pgvector config.
+ * Cache: In-memory Map with 7-day TTL eviction.
  * All vectors are L2-normalized for cosine similarity search.
  */
 
@@ -22,14 +23,74 @@ export interface EmbeddingResult {
   timeMs: number;
 }
 
+interface CacheEntry {
+  vector: number[];
+  timestamp: number;
+  model: string;
+}
+
 // ── Constants ────────────────────────────────────────────────────
 
 const EMBEDDING_DIMENSION = 384;
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const MAX_CACHE_SIZE = 5000;
+const isProduction = process.env.NODE_ENV === 'production';
 const isPostgres = process.env.DATABASE_URL?.startsWith('postgres') || false;
 
-// Simple in-memory cache to avoid regenerating the same embeddings
-const embeddingCache = new Map<string, number[]>();
-const MAX_CACHE_SIZE = 5000;
+const GROQ_EMBEDDING_MODEL =
+  process.env.GROQ_EMBEDDING_MODEL || 'all-MiniLM-L6-v2';
+const GROQ_EMBEDDING_TIMEOUT_MS = parseInt(
+  process.env.GROQ_EMBEDDING_TIMEOUT_MS || '3000',
+  10
+);
+const GROQ_EMBEDDING_RETRIES = parseInt(
+  process.env.GROQ_EMBEDDING_RETRIES || '2',
+  10
+);
+
+// ── TTL-based In-Memory Cache ───────────────────────────────────
+
+const embeddingCache = new Map<string, CacheEntry>();
+
+function evictExpiredEntries(): void {
+  const now = Date.now();
+  for (const [key, entry] of embeddingCache) {
+    if (now - entry.timestamp > CACHE_TTL_MS) {
+      embeddingCache.delete(key);
+    }
+  }
+}
+
+function getFromCache(key: string): number[] | null {
+  evictExpiredEntries();
+  const entry = embeddingCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+    embeddingCache.delete(key);
+    return null;
+  }
+  return entry.vector;
+}
+
+function setCacheEntry(key: string, vector: number[], model: string): void {
+  // Enforce max cache size with FIFO eviction
+  if (embeddingCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = embeddingCache.keys().next().value;
+    if (firstKey) embeddingCache.delete(firstKey);
+  }
+  embeddingCache.set(key, { vector, timestamp: Date.now(), model });
+}
+
+// ── Simple Hash Function (no crypto dependency) ────────────────
+
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash + char) | 0;
+  }
+  return Math.abs(hash).toString(36);
+}
 
 // ── MurmurHash3 (32-bit) for deterministic hashing ──────────────
 
@@ -55,23 +116,22 @@ function murmurhash3(key: string, seed = 0): number {
 
 // ── L2 Normalization ────────────────────────────────────────────
 
+/**
+ * L2-normalizes a vector so its magnitude equals 1.
+ * Required for cosine similarity via dot product on HNSW index (m=16, ef_construction=64).
+ */
 export function normalizeVector(vec: number[]): number[] {
   const magnitude = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
   if (magnitude === 0) return vec;
   return vec.map((v) => v / magnitude);
 }
 
-// ── Hash-based Pseudo-Embedding (Fallback) ─────────────────────
+// ── Hash-based Pseudo-Embedding (Dev Fallback) ─────────────────
 
 /**
  * Generates a deterministic pseudo-embedding using hash distribution.
- * This is NOT a real semantic embedding, but it provides:
- * - Deterministic output (same text → same vector)
- * - Reasonable distribution across dimensions
- * - L2-normalized for cosine similarity
- * - 384 dimensions matching pgvector config
- *
- * For production, replace with real embeddings (OpenAI, Cohere, etc.)
+ * This is NOT a real semantic embedding — used only in development
+ * for fast iteration without requiring an API key.
  */
 function generateHashEmbedding(text: string): number[] {
   const vec = new Array(EMBEDDING_DIMENSION).fill(0);
@@ -131,113 +191,87 @@ function getCharNgrams(text: string, n: number): string[] {
   return result;
 }
 
-// ── Try Real Embeddings (PostgreSQL + API) ─────────────────────
+// ── Groq Embedding via z-ai-web-dev-sdk ─────────────────────────
 
 /**
- * Attempts to generate a real embedding via an external API.
- * Falls back to hash-based if the API is unavailable.
+ * Calls the Groq embeddings API via z-ai-web-dev-sdk with retry logic.
+ * Returns a real 384-dim semantic embedding for the given text.
+ *
+ * @throws Error if the API fails after all retries (no fallback).
  */
-async function tryRealEmbedding(text: string): Promise<EmbeddingResult> {
-  const start = Date.now();
+async function generateGroqEmbedding(text: string): Promise<number[]> {
+  let lastError: Error | null = null;
 
-  // Check if an embeddings API is configured
-  const embeddingApiUrl = process.env.EMBEDDING_API_URL;
-  const embeddingApiKey = process.env.EMBEDDING_API_KEY;
+  for (let attempt = 0; attempt <= GROQ_EMBEDDING_RETRIES; attempt++) {
+    if (attempt > 0) {
+      // 500ms backoff between retries
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
 
-  if (!embeddingApiUrl || !embeddingApiKey) {
-    return {
-      embedding: generateHashEmbedding(text),
-      dimension: EMBEDDING_DIMENSION,
-      normalized: true,
-      method: 'hash_fallback',
-      timeMs: Date.now() - start,
-    };
-  }
+    try {
+      // Dynamic import to avoid Turbopack issues
+      const ZAI = (await import('z-ai-web-dev-sdk')).default;
+      const zai = ZAI.create();
 
-  try {
-    const response = await fetch(embeddingApiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${embeddingApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        input: text,
-        model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
-      }),
-      signal: AbortSignal.timeout(10000),
-    });
+      const result = await Promise.race([
+        zai.embeddings.create({
+          input: text,
+          model: GROQ_EMBEDDING_MODEL,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`Groq embedding timed out after ${GROQ_EMBEDDING_TIMEOUT_MS}ms`)),
+            GROQ_EMBEDDING_TIMEOUT_MS
+          )
+        ),
+      ]);
 
-    if (!response.ok) {
-      logger.warn('Embedding API returned non-OK', {
-        status: response.status,
-        url: embeddingApiUrl,
+      const embedding = (result as { data: Array<{ embedding: number[] }> }).data?.[0]?.embedding;
+
+      if (!embedding || embedding.length === 0) {
+        throw new Error('Empty embedding response from Groq API');
+      }
+
+      if (embedding.length !== EMBEDDING_DIMENSION) {
+        logger.warn('Groq embedding dimension mismatch', {
+          expected: EMBEDDING_DIMENSION,
+          received: embedding.length,
+          model: GROQ_EMBEDDING_MODEL,
+        });
+      }
+
+      // Truncate or pad to exact dimension
+      const vec = embedding.slice(0, EMBEDDING_DIMENSION);
+      while (vec.length < EMBEDDING_DIMENSION) vec.push(0);
+
+      return normalizeVector(vec);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      logger.warn(`Groq embedding attempt ${attempt + 1} failed`, {
+        attempt: attempt + 1,
+        maxRetries: GROQ_EMBEDDING_RETRIES + 1,
+        error: lastError.message,
+        model: GROQ_EMBEDDING_MODEL,
       });
-      return {
-        embedding: generateHashEmbedding(text),
-        dimension: EMBEDDING_DIMENSION,
-        normalized: true,
-        method: 'hash_fallback',
-        timeMs: Date.now() - start,
-      };
     }
-
-    const data = await response.json() as {
-      data?: Array<{ embedding: number[] }>;
-    };
-
-    const embedding = data?.data?.[0]?.embedding;
-    if (!embedding || embedding.length === 0) {
-      throw new Error('Empty embedding response');
-    }
-
-    const normalized = normalizeVector(embedding.slice(0, EMBEDDING_DIMENSION));
-
-    // Pad or truncate to exact dimension
-    while (normalized.length < EMBEDDING_DIMENSION) normalized.push(0);
-
-    logger.info('Real embedding generated', {
-      dimension: normalized.length,
-      timeMs: Date.now() - start,
-    });
-
-    return {
-      embedding: normalized.slice(0, EMBEDDING_DIMENSION),
-      dimension: EMBEDDING_DIMENSION,
-      normalized: true,
-      method: 'pgvector',
-      timeMs: Date.now() - start,
-    };
-  } catch (error) {
-    logger.warn('Embedding API failed, using hash fallback', {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return {
-      embedding: generateHashEmbedding(text),
-      dimension: EMBEDDING_DIMENSION,
-      normalized: true,
-      method: 'hash_fallback',
-      timeMs: Date.now() - start,
-    };
   }
-}
 
-// ── Simple Hash Function (no crypto dependency) ────────────────
-
-function simpleHash(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash + char) | 0;
-  }
-  return Math.abs(hash).toString(36);
+  // All retries exhausted — throw in production, fallback in dev
+  throw new Error(
+    `Groq embeddings API failed after ${GROQ_EMBEDDING_RETRIES + 1} attempts: ${lastError?.message}`
+  );
 }
 
 // ── Public API ──────────────────────────────────────────────────
 
 /**
  * Generate an embedding for the given text.
- * Uses cache to avoid regenerating the same embeddings.
+ *
+ * - Development: Uses hash_fallback by default (fast, no API needed).
+ * - Production: Uses real Groq embeddings via z-ai-web-dev-sdk.
+ *   If the API fails, an error is thrown.
+ *
+ * Cache: In-memory with 7-day TTL. Skipped when forceRefresh=true.
  *
  * @param text - The text to embed (max ~8000 tokens)
  * @param forceRefresh - Skip cache and regenerate
@@ -247,32 +281,67 @@ export async function generateEmbedding(
   text: string,
   forceRefresh = false
 ): Promise<EmbeddingResult> {
-  // Create a cache key from the text (simple hash)
+  const start = Date.now();
   const cacheKey = simpleHash(text).slice(0, 16);
 
   // Check cache
-  if (!forceRefresh && embeddingCache.has(cacheKey)) {
-    return {
-      embedding: embeddingCache.get(cacheKey)!,
-      dimension: EMBEDDING_DIMENSION,
-      normalized: true,
-      method: isPostgres ? 'pgvector' : 'hash_fallback',
-      timeMs: 0,
-    };
+  if (!forceRefresh) {
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+      const latency = Date.now() - start;
+      logger.info('embedding.generated', {
+        model: 'cached',
+        dim: EMBEDDING_DIMENSION,
+        cache_hit: true,
+        latency_ms: latency,
+      });
+      return {
+        embedding: cached,
+        dimension: EMBEDDING_DIMENSION,
+        normalized: true,
+        method: isPostgres ? 'pgvector' : 'hash_fallback',
+        timeMs: latency,
+      };
+    }
   }
 
-  // Generate embedding
-  const result = await tryRealEmbedding(text);
+  // Generate embedding based on environment
+  let vector: number[];
+  let method: EmbeddingResult['method'];
+
+  if (isProduction) {
+    // ── Production: Real Groq embeddings ONLY ──────────────────
+    vector = await generateGroqEmbedding(text);
+    method = 'pgvector';
+  } else {
+    // ── Development: Hash fallback (fast, no API needed) ──────
+    vector = generateHashEmbedding(text);
+    method = 'hash_fallback';
+  }
+
+  const latency = Date.now() - start;
+
+  // Always L2-normalize before returning
+  vector = normalizeVector(vector);
 
   // Update cache
-  if (embeddingCache.size >= MAX_CACHE_SIZE) {
-    // Evict oldest entries (simple FIFO)
-    const firstKey = embeddingCache.keys().next().value;
-    if (firstKey) embeddingCache.delete(firstKey);
-  }
-  embeddingCache.set(cacheKey, result.embedding);
+  const model = isProduction ? GROQ_EMBEDDING_MODEL : 'hash_fallback';
+  setCacheEntry(cacheKey, vector, model);
 
-  return result;
+  logger.info('embedding.generated', {
+    model,
+    dim: EMBEDDING_DIMENSION,
+    cache_hit: false,
+    latency_ms: latency,
+  });
+
+  return {
+    embedding: vector,
+    dimension: EMBEDDING_DIMENSION,
+    normalized: true,
+    method,
+    timeMs: latency,
+  };
 }
 
 /**
@@ -285,7 +354,7 @@ export async function generateEmbeddingBatch(
 }
 
 /**
- * Compute cosine similarity between two normalized vectors.
+ * Compute cosine similarity between two L2-normalized vectors.
  * Returns a value between -1 and 1 (1 = identical).
  */
 export function cosineSimilarity(a: number[], b: number[]): number {

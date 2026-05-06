@@ -1,0 +1,63 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - name: Warm up
+      duration: 30
+      arrivalRate: 5
+    - name: Ramp up
+      duration: 60
+      arrivalRate: 20
+    - name: Sustained load (200 users/min)
+      duration: 120
+      arrivalRate: 50  # ~200 users/min considering response times
+    - name: Cool down
+      duration: 30
+      arrivalRate: 5
+  defaults:
+    headers:
+      Authorization: "Bearer aeroassist_dev_key_2024"
+      Content-Type: "application/json"
+  processor: "./load-test-processor.js"
+
+scenarios:
+  - name: "Health Check"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/health"
+
+  - name: "RAG Search Pipeline"
+    weight: 30
+    flow:
+      - post:
+          url: "/api/rag/test"
+          json:
+            query: "Où manger au terminal 2E CDG ?"
+            maxResults: 3
+
+  - name: "AI Chat"
+    weight: 40
+    flow:
+      - post:
+          url: "/api/chat"
+          json:
+            message: "Bonjour, mon vol AF1234 est à quelle heure ?"
+            conversationId: "load_test_conv_{{ $randomString() }}"
+
+  - name: "Flights API"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/flights"
+
+  - name: "Knowledge Base"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/knowledge"
+
+  - name: "Analytics"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/analytics"
