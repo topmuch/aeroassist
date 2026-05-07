@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # wait-for-it.sh - Wait for a host/port to be available
 # Source: https://github.com/vishnubob/wait-for-it (simplified)
 

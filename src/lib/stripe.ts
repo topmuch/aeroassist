@@ -511,34 +511,62 @@ export async function processWebhookEvent(event: Record<string, unknown>): Promi
 
       case 'charge.refunded': {
         // Refund — update reservation payment status
-        const metadata = data.metadata as Record<string, string> | undefined;
-        const userId = metadata?.userId;
         const amountRefunded = data.amount_refunded as number;
 
-        if (userId) {
-          const reservation = await db.reservation.findFirst({
-            where: {
-              userId,
-              paymentStatus: 'paid',
+        // Match by PaymentIntent ID for accuracy (not userId + orderBy which matches wrong reservation)
+        const paymentIntentId = data.payment_intent as string;
+        let reservation = null;
+
+        if (paymentIntentId) {
+          // Try matching by paymentIntentId stored in reservation details
+          const allPaidReservations = await db.reservation.findMany({
+            where: { paymentStatus: 'paid' },
+          });
+          reservation = allPaidReservations.find((r) => {
+            try {
+              const details = JSON.parse(r.details || '{}');
+              return details.stripePaymentIntent === paymentIntentId;
+            } catch {
+              return false;
+            }
+          }) || null;
+        }
+
+        if (!reservation) {
+          // Fallback: match by Stripe charge ID in details
+          const chargeId = data.id as string;
+          const allPaidReservations = await db.reservation.findMany({
+            where: { paymentStatus: 'paid' },
+          });
+          reservation = allPaidReservations.find((r) => {
+            try {
+              const details = JSON.parse(r.details || '{}');
+              return details.stripeChargeId === chargeId;
+            } catch {
+              return false;
+            }
+          }) || null;
+        }
+
+        if (reservation) {
+          await db.reservation.update({
+            where: { id: reservation.id },
+            data: {
+              paymentStatus: 'refunded',
+              status: 'cancelled',
             },
-            orderBy: { paidAt: 'desc' },
           });
 
-          if (reservation) {
-            await db.reservation.update({
-              where: { id: reservation.id },
-              data: {
-                paymentStatus: 'refunded',
-                status: 'cancelled',
-              },
-            });
-
-            logger.info('Reservation refunded', {
-              reservationId: reservation.id,
-              reference: reservation.reference,
-              amountRefunded,
-            });
-          }
+          logger.info('Reservation refunded', {
+            reservationId: reservation.id,
+            reference: reservation.reference,
+            amountRefunded,
+          });
+        } else {
+          logger.warn('Charge refunded but no matching reservation found', {
+            paymentIntentId,
+            amountRefunded,
+          });
         }
 
         return { processed: true, eventType };

@@ -1,13 +1,18 @@
 {
+  "version": "1.0.0",
   "templates": [
     {
       "name": "aeroassist_welcome",
+      "displayName": "Message de bienvenue AeroAssist",
+      "status": "draft",
       "language": "fr",
       "category": "MARKETING",
       "body": "Bienvenue chez AeroAssist ✈️ ! Je suis votre assistant virtuel d'aéroport. Comment puis-je vous aider aujourd'hui ?\n\n🍽️ Restaurants & Cafés\n🛍️ Boutiques & Shopping\n🏨 Hôtels & Salons VIP\n🚗 Transports & Navettes\n✈️ Infos Vols\n\nEnvoyez-moi votre question en français ou anglais !"
     },
     {
       "name": "aeroassist_flight_status",
+      "displayName": "Statut de vol",
+      "status": "draft",
       "language": "fr",
       "category": "UTILITY",
       "body": "✈️ *Statut de votre vol*\n\nVol : {{1}}\nDépart : {{2}}\nArrivée : {{3}}\nStatut : {{4}}\nPorte : {{5}}\n\nDernière mise à jour : {{6}}",
@@ -15,6 +20,8 @@
     },
     {
       "name": "aeroassist_reservation_confirmed",
+      "displayName": "Confirmation de réservation",
+      "status": "draft",
       "language": "fr",
       "category": "UTILITY",
       "body": "✅ *Réservation confirmée*\n\nRéférence : {{1}}\nService : {{2}}\nDate : {{3}}\nMontant : {{4}}\n\nMerci pour votre confiance ! Votre facture sera envoyée par email.\n\nAeroAssist ✈️",
@@ -22,6 +29,8 @@
     },
     {
       "name": "aeroassist_24h_reminder",
+      "displayName": "Rappel 24h avant réservation",
+      "status": "draft",
       "language": "fr",
       "category": "UTILITY",
       "body": "⏰ *Rappel AeroAssist*\n\nVotre réservation *{{1}}* est prévue demain.\n\n📍 Lieu : {{2}}\n🗓️ Date : {{3}}\n\nBesoin de modifier ? Contactez-nous !\n\nAeroAssist ✈️",
@@ -29,6 +38,8 @@
     },
     {
       "name": "aeroassist_payment_receipt",
+      "displayName": "Reçu de paiement",
+      "status": "draft",
       "language": "fr",
       "category": "UTILITY",
       "body": "💰 *Paiement reçu*\n\nMontant : {{1}}\nRéférence : {{2}}\nStatut : Confirmé\n\nVotre facture sera disponible dans votre espace client.\n\nMerci pour votre confiance !\nAeroAssist ✈️",

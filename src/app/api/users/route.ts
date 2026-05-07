@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/security';
+import { logger } from '@/lib/logger';
 
 // ── Validation Schemas ──────────────────────────────────────────
 
@@ -112,7 +113,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Users API] GET error:', error);
+    logger.error('[Users API] GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error', message: 'Failed to fetch users' },
       { status: 500 }
@@ -163,7 +164,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('[Users API] POST error:', error);
+    logger.error('[Users API] POST error:', error);
     return NextResponse.json(
       { error: 'Internal server error', message: 'Failed to create user' },
       { status: 500 }
@@ -216,7 +217,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: user });
   } catch (error) {
-    console.error('[Users API] PUT error:', error);
+    logger.error('[Users API] PUT error:', error);
     return NextResponse.json(
       { error: 'Internal server error', message: 'Failed to update user' },
       { status: 500 }
@@ -256,7 +257,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: user });
   } catch (error) {
-    console.error('[Users API] PATCH error:', error);
+    logger.error('[Users API] PATCH error:', error);
     return NextResponse.json(
       { error: 'Internal server error', message: 'Failed to toggle user status' },
       { status: 500 }

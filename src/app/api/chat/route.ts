@@ -18,6 +18,30 @@ import { db } from '@/lib/db';
 import { processAssistantMessage } from '@/lib/ai-assistant';
 import logger from '@/lib/logger';
 
+// ── IP-based Rate Limiter ───────────────────────────────────────
+
+const chatRateLimiter = new Map<string, { count: number; resetTime: number }>();
+const CHAT_RATE_LIMIT = 20; // 20 requests per minute per IP
+const CHAT_RATE_WINDOW = 60_000; // 1 minute
+
+function getClientIp(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp) return realIp.trim();
+  return 'unknown';
+}
+
+// Cleanup stale entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of chatRateLimiter.entries()) {
+    if (now > entry.resetTime) {
+      chatRateLimiter.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
 // ── Validation Schema ──────────────────────────────────────────
 
 const chatSchema = z.object({
@@ -30,6 +54,33 @@ const chatSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // ── Rate limiting check (before any processing) ──
+    const ip = getClientIp(request);
+    const now = Date.now();
+    let rateEntry = chatRateLimiter.get(ip);
+
+    if (!rateEntry || now > rateEntry.resetTime) {
+      rateEntry = { count: 0, resetTime: now + CHAT_RATE_WINDOW };
+      chatRateLimiter.set(ip, rateEntry);
+    }
+
+    rateEntry.count++;
+
+    if (rateEntry.count > CHAT_RATE_LIMIT) {
+      const retryAfter = Math.ceil((rateEntry.resetTime - now) / 1000);
+      logger.warn('Chat rate limit exceeded', { ip, count: rateEntry.count });
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfter),
+            'X-RateLimit-Remaining': '0',
+          },
+        }
+      );
+    }
+
     const body = await request.json();
     const parsed = chatSchema.safeParse(body);
 

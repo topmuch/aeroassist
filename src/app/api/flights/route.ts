@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/security';
+import { logger } from '@/lib/logger';
 
 const flightQuerySchema = z.object({
   type: z.enum(['departures', 'arrivals']).optional(),
@@ -245,7 +246,7 @@ export async function GET(request: NextRequest) {
       source: 'mock',
     });
   } catch (error) {
-    console.error('[Flights API] Error:', error);
+    logger.error('[Flights API] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error', message: 'Failed to fetch flight data' },
       { status: 500 }

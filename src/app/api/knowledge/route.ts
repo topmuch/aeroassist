@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/security';
+import { logger } from '@/lib/logger';
 
 // ── Validation Schemas ──────────────────────────────────────────
 
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Knowledge API] GET error:', error);
+    logger.error('[Knowledge API] GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error', message: 'Failed to fetch knowledge entries' },
       { status: 500 }
@@ -145,7 +146,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('[Knowledge API] POST error:', error);
+    logger.error('[Knowledge API] POST error:', error);
     return NextResponse.json(
       { error: 'Internal server error', message: 'Failed to create knowledge entry' },
       { status: 500 }
@@ -202,7 +203,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: entry });
   } catch (error) {
-    console.error('[Knowledge API] PUT error:', error);
+    logger.error('[Knowledge API] PUT error:', error);
     return NextResponse.json(
       { error: 'Internal server error', message: 'Failed to update knowledge entry' },
       { status: 500 }
@@ -255,7 +256,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Entry archived successfully',
     });
   } catch (error) {
-    console.error('[Knowledge API] DELETE error:', error);
+    logger.error('[Knowledge API] DELETE error:', error);
     return NextResponse.json(
       { error: 'Internal server error', message: 'Failed to archive knowledge entry' },
       { status: 500 }

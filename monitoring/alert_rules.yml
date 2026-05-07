@@ -48,7 +48,7 @@ groups:
       # Container memory usage exceeds 80%
       - alert: HighMemoryUsage
         expr: |
-          (1 - (container_memory_working_set_bytes / container_spec_memory_limit_bytes)) > 0.80
+          container_memory_working_set_bytes / container_spec_memory_limit_bytes > 0.80
         for: 5m
         labels:
           severity: warning

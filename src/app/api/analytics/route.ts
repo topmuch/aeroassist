@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/security';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   const authError = requireAuth(request);
@@ -141,7 +142,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Analytics API] GET error:', error);
+    logger.error('[Analytics API] GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error', message: 'Failed to fetch analytics' },
       { status: 500 }

@@ -8,6 +8,17 @@
 import { db } from './db';
 import logger from './logger';
 
+// ── HTML Escape (XSS prevention) ─────────────────────────────────
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // ── Types ────────────────────────────────────────────────────────
 
 export interface InvoiceLineItem {
@@ -66,7 +77,7 @@ export function generateInvoiceHtml(data: InvoiceData): string {
     .map(
       (item) => `
         <tr>
-          <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #374151;">${item.description}</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #374151;">${escapeHtml(item.description)}</td>
           <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #374151;">${item.quantity}</td>
           <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #374151;">${formatCurrency(item.unitPrice, data.currency)}</td>
           <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: #111827;">${formatCurrency(item.quantity * item.unitPrice, data.currency)}</td>
@@ -96,7 +107,7 @@ export function generateInvoiceHtml(data: InvoiceData): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Facture ${data.invoiceNumber} — AeroAssist</title>
+  <title>Facture ${escapeHtml(data.invoiceNumber)} — AeroAssist</title>
   <style>
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -136,7 +147,7 @@ export function generateInvoiceHtml(data: InvoiceData): string {
       <div class="logo">Aero<span>Assist</span></div>
       <div class="header-right">
         <div><strong>Facture</strong></div>
-        <div>${data.invoiceNumber}</div>
+        <div>${escapeHtml(data.invoiceNumber)}</div>
       </div>
     </div>
 
@@ -145,14 +156,14 @@ export function generateInvoiceHtml(data: InvoiceData): string {
       <div class="invoice-meta">
         <div class="meta-block">
           <h3>Factur&eacute; &agrave;</h3>
-          <p style="font-weight:600; font-size:16px;">${data.customerName}</p>
-          <p>${data.customerEmail}</p>
+          <p style="font-weight:600; font-size:16px;">${escapeHtml(data.customerName)}</p>
+          <p>${escapeHtml(data.customerEmail)}</p>
         </div>
         <div class="meta-block" style="text-align:right;">
           <h3>D&eacute;tails de la facture</h3>
-          <p><strong>Date :</strong> ${data.date}</p>
-          <p><strong>&Eacute;ch&eacute;ance :</strong> ${data.dueDate}</p>
-          <p><strong>R&eacute;f&eacute;rence :</strong> ${data.reference}</p>
+          <p><strong>Date :</strong> ${escapeHtml(data.date)}</p>
+          <p><strong>&Eacute;ch&eacute;ance :</strong> ${escapeHtml(data.dueDate)}</p>
+          <p><strong>R&eacute;f&eacute;rence :</strong> ${escapeHtml(data.reference)}</p>
           <p style="margin-top:8px;"><span class="status-badge">${statusLabel}</span></p>
         </div>
       </div>

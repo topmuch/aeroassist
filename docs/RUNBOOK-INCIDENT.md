@@ -254,7 +254,7 @@ docker exec aeroassist_backend npx prisma migrate deploy
 # 5. Vérifier
 curl -sf https://aeroassist.fr/api/health | jq .
 docker exec aeroassist_postgres psql -U aeroassist -d aeroassist_db -c \
-  "SELECT 'users' as tbl, count(*) FROM users UNION ALL SELECT 'conversations', count(*) FROM conversations;"
+  "SELECT 'users' as tbl, count(*) FROM \"User\" UNION ALL SELECT 'conversations', count(*) FROM \"Conversation\";"
 ```
 
 ---

@@ -290,12 +290,12 @@ curl -X POST https://aeroassist.fr/api/seed \
 ```bash
 # Compter les entrées dans chaque table
 docker compose -f docker-compose.prod.yml exec postgres psql -U aeroassist -d aeroassist_db -c \
-  "SELECT 'users' as tbl, count(*) FROM users
-   UNION ALL SELECT 'conversations', count(*) FROM conversations
-   UNION ALL SELECT 'messages', count(*) FROM messages
-   UNION ALL SELECT 'flights', count(*) FROM flights
-   UNION ALL SELECT 'reservations', count(*) FROM reservations
-   UNION ALL SELECT 'knowledge_base_entries', count(*) FROM knowledge_base_entries;"
+  "SELECT 'users' as tbl, count(*) FROM \"User\"
+   UNION ALL SELECT 'conversations', count(*) FROM \"Conversation\"
+   UNION ALL SELECT 'messages', count(*) FROM \"Message\"
+   UNION ALL SELECT 'flights', count(*) FROM \"Flight\"
+   UNION ALL SELECT 'reservations', count(*) FROM \"Reservation\"
+   UNION ALL SELECT 'knowledge_base_entries', count(*) FROM \"KnowledgeBaseEntry\";"
 ```
 
 ---

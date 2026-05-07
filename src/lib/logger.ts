@@ -147,4 +147,5 @@ export function createRequestLogger(endpoint: string) {
   };
 }
 
+export { logger };
 export default logger;

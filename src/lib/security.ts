@@ -4,6 +4,7 @@
  * Adapted for Next.js API Routes (not Express middleware)
  */
 
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ZodSchema } from 'zod';
 import logger, { logSecurityEvent } from './logger';
@@ -259,10 +260,38 @@ export function requireAuth(request: NextRequest): NextResponse | null {
   if (!adminKey) return null;
 
   const authHeader = request.headers.get('authorization');
-  if (!authHeader || authHeader !== `Bearer ${adminKey}`) {
+  if (!authHeader) {
     logSecurityEvent('api_auth_failed', {
       endpoint: request.nextUrl.pathname,
-      hasAuthHeader: !!authHeader,
+      hasAuthHeader: false,
+    });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Timing-safe comparison to prevent timing attacks
+  const expected = Buffer.from(`Bearer ${adminKey}`);
+  const actual = Buffer.from(authHeader);
+  if (actual.length !== expected.length) {
+    logSecurityEvent('api_auth_failed', {
+      endpoint: request.nextUrl.pathname,
+      hasAuthHeader: true,
+    });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const isValid = crypto.timingSafeEqual(actual, expected);
+    if (!isValid) {
+      logSecurityEvent('api_auth_failed', {
+        endpoint: request.nextUrl.pathname,
+        hasAuthHeader: true,
+      });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+  } catch {
+    logSecurityEvent('api_auth_failed', {
+      endpoint: request.nextUrl.pathname,
+      hasAuthHeader: true,
     });
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
