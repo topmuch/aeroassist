@@ -16,6 +16,48 @@ export interface ApiAnalytics {
   messagesPerDay: Array<{ date: string; count: number }>;
 }
 
+// ─── Dashboard Analytics (New) ─────────────────────────────────────
+
+export interface DashboardKpis {
+  totalRevenue30d: number;
+  totalRevenue7d: number;
+  activeUsers24h: number;
+  activeUsers7d: number;
+  totalMessages7d: number;
+  flightQueries7d: number;
+  conversionRate: number;
+  avgResponseTimeSeconds: number;
+  totalConversations7d: number;
+  totalReservations7d: number;
+}
+
+export interface DashboardAnalyticsData {
+  kpis: DashboardKpis;
+  topIntents: Array<{ intent: string; count: number; percentage: number }>;
+  revenueByType: Array<{ type: string; revenue: number; count: number }>;
+  dailyHistory: Array<{
+    date: string;
+    label: string;
+    revenue: number;
+    messages: number;
+    conversations: number;
+    reservations: number;
+    paidReservations: number;
+  }>;
+  recentConversations: Array<{
+    id: string;
+    whatsappId: string;
+    status: string;
+    lastMessage: string | null;
+    messageCount: number;
+  }>;
+  meta: {
+    generatedAt: string;
+    queryTimeMs: number;
+    cacheHit: boolean;
+  };
+}
+
 export interface ApiUser {
   id: string;
   name: string;

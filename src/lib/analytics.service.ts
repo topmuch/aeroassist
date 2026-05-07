@@ -146,7 +146,7 @@ export async function getDashboardAnalytics(
       db.reservation.aggregate({
         _sum: { totalAmount: true },
         where: {
-          paymentStatus: 'PAID_DIRECT',
+          paymentStatus: 'paid',
           createdAt: { gte: daysAgo(30) },
         },
       }),
@@ -218,7 +218,7 @@ export async function getDashboardAnalytics(
       db.reservation.count({
         where: {
           createdAt: { gte: daysAgo(7) },
-          paymentStatus: 'PAID_DIRECT',
+          paymentStatus: 'paid',
         },
       }),
       'paid_reservations_7d'

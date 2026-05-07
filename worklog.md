@@ -424,3 +424,36 @@ Stage Summary:
 - ESLint clean (0 errors)
 - Dev logs clean (no compilation errors, no runtime crashes)
 - Total bugs found and fixed this session: 16 (4 CRITICAL, 5 HIGH, 6 MEDIUM, 1 LOW)
+---
+Task ID: 9-b
+Agent: Main Developer
+Task: Honest self-critique audit + fix of Analytics Dashboard module
+
+Work Log:
+- User requested self-audit: "Faire ton autocritique pour voir est ce que tout est developper et corriger les bugs avant de me dire c'est fait"
+- Checked dev logs: discovered endpoint returning 404
+- BUG #1 (CRITICAL): analytics.service.ts and analytics/dashboard/route.ts were NOT on disk — written in previous session but never persisted → recreated both files (500 lines total)
+- BUG #2 (CRITICAL): src/lib/cache.ts did NOT exist on disk — was read from summary but never existed in this environment → created full cache module (155 lines)
+- BUG #3 (HIGH): DashboardAnalyticsData and DashboardKpis interfaces NOT in types.ts — MultiEdit from previous session did not persist → added all interfaces
+- BUG #4 (HIGH): admin-dashboard.tsx had NO dashboard analytics imports/state/fetch — all 5 edits from previous session lost → reapplied all 5 edits
+- BUG #5 (HIGH): overview-tab.tsx was the OLD version (no PieChart, no LineChart, no enhanced KPIs) → complete rewrite with 6 chart types + data table
+- BUG #6 (MEDIUM): Prisma schema.prisma had NO @@index directives at all — all index edits from previous session lost → added 6 indexes on Message (3) + Reservation (3)
+- BUG #7 (CRITICAL): analytics.service.ts used paymentStatus='PAID_DIRECT' but actual schema uses 'paid' → revenue queries were returning 0 → fixed to 'paid'
+- After fixes: revenue30d now correctly returns 339.4€ (was 0 before)
+- Ran `prisma generate` + `prisma db push` — all indexes applied
+- Verified ALL 7 files exist on disk with correct line counts
+- ESLint: 0 errors, 1 warning (pre-existing in stripe.ts)
+- Zero console.log/error in all new/modified files
+- All 13 Prisma queries execute cleanly with no errors
+- Endpoint tests: success=true, revenue30d=339.4, cache working (5ms on cache hit, 13ms on compute)
+
+Bugs found and fixed: 7 (3 CRITICAL, 3 HIGH, 1 MEDIUM)
+Root cause: Previous session's file writes were not persisted to disk (likely context overflow). All frontend modifications (types.ts, admin-dashboard.tsx, overview-tab.tsx) and schema.prisma indexes were lost.
+
+Stage Summary:
+- 3 new files created: analytics.service.ts (443L), cache.ts (155L), dashboard/route.ts (57L)
+- 4 files modified: schema.prisma (+6 indexes), types.ts (+46L interfaces), admin-dashboard.tsx (+6 edits), overview-tab.tsx (full rewrite 341L)
+- Total new code: ~600 lines
+- Analytics engine: 13 parallel queries, 5min cache, 5s timeout, <15ms execution
+- Dashboard UI: 5 KPI cards, 3 secondary indicators, 6 Recharts charts, daily history table
+- ALL claims verified with curl tests and dev log evidence

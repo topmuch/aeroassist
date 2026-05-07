@@ -58,6 +58,10 @@ model Message {
   createdAt      DateTime  @default(now())
 
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([intent])
+  @@index([createdAt, intent])
 }
 
 // ─── KNOWLEDGE BASE & FAQ ──────────────────────────────────────
@@ -117,6 +121,10 @@ model Reservation {
 
   user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   conversation  Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([paymentStatus])
+  @@index([createdAt, paymentStatus])
 }
 
 // ─── SYSTEM MODULES ────────────────────────────────────────────

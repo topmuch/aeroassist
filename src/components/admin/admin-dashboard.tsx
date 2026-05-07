@@ -62,6 +62,7 @@ import type {
   PaginationInfo,
   HealthData,
   AiLog,
+  DashboardAnalyticsData,
 } from "./types";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -94,6 +95,8 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   // ─── Analytics state (Overview tab) ─────────────────────────────────────
   const [analytics, setAnalytics] = useState<ApiAnalytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [dashboardAnalytics, setDashboardAnalytics] = useState<DashboardAnalyticsData | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
 
   // ─── Users state ────────────────────────────────────────────────────────
   const [users, setUsers] = useState<ApiUser[]>([]);
@@ -200,6 +203,18 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       if (data.success) setAnalytics(data.data);
     } catch { /* silent */ } finally {
       setAnalyticsLoading(false);
+    }
+  }, []);
+
+  const fetchDashboardAnalytics = useCallback(async (forceRefresh = false) => {
+    setDashboardLoading(true);
+    try {
+      const params = forceRefresh ? '?forceRefresh=true' : '';
+      const res = await fetch(`/api/analytics/dashboard${params}`, { headers: authHeaders });
+      const data = await res.json();
+      if (data.success) setDashboardAnalytics(data.data);
+    } catch { /* silent */ } finally {
+      setDashboardLoading(false);
     }
   }, []);
 
@@ -395,6 +410,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   // ─── Effects ────────────────────────────────────────────────────────────
 
   useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
+  useEffect(() => { fetchDashboardAnalytics(); }, [fetchDashboardAnalytics]);
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
   useEffect(() => { fetchKnowledge(); }, [fetchKnowledge]);
   useEffect(() => { fetchModules(); }, [fetchModules]);
@@ -722,6 +738,9 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
               chartMessagesData={chartMessagesData}
               chartIntentData={chartIntentData}
               recentActivity={recentActivity}
+              dashboardAnalytics={dashboardAnalytics}
+              dashboardLoading={dashboardLoading}
+              onRefreshDashboard={() => fetchDashboardAnalytics(true)}
             />
           )}
           {activeTab === "users" && (
