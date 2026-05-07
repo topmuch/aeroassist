@@ -457,3 +457,23 @@ Stage Summary:
 - Analytics engine: 13 parallel queries, 5min cache, 5s timeout, <15ms execution
 - Dashboard UI: 5 KPI cards, 3 secondary indicators, 6 Recharts charts, daily history table
 - ALL claims verified with curl tests and dev log evidence
+
+---
+Task ID: 1
+Agent: Main
+Task: Configure admin dashboard credentials and fix authentication
+
+Work Log:
+- Analyzed auth architecture: PIN dialog (frontend, navbar.tsx) + API key (backend, security.ts)
+- Found .env had no ADMIN_API_KEY → API auth was bypassed (dev mode open access)
+- Set NEXT_PUBLIC_ADMIN_PIN=aero2025 in .env
+- Set ADMIN_API_KEY=aero_sk_live_xK9mP2vNqR7wT4jBcF5hD8sL0yU3eA6i in .env
+- Set NEXT_PUBLIC_ADMIN_API_KEY matching ADMIN_API_KEY for frontend Bearer auth
+- Dev server auto-reloaded .env changes
+- Tested authentication: no-key=401, correct-key=200, wrong-key=401 ✅
+- Verified analytics endpoint returns valid KPI data ✅
+
+Stage Summary:
+- Dashboard credentials configured and verified
+- Auth bypass fixed (ADMIN_API_KEY now enforced)
+- All 3 auth scenarios tested via curl with evidence
