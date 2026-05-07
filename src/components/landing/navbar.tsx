@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Plane, Menu, MessageCircle, Shield, Home, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
@@ -13,13 +12,6 @@ import {
   SheetTrigger,
   SheetClose,
 } from "@/components/ui/sheet";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 export type ViewType = "landing" | "chat" | "admin";
@@ -45,8 +37,6 @@ const sectionLinks = [
   { label: "FAQ", href: "#faq" },
 ];
 
-const ADMIN_PIN = process.env.NEXT_PUBLIC_ADMIN_PIN || "1234";
-
 export default function Navbar({
   currentView,
   onViewChange,
@@ -55,31 +45,10 @@ export default function Navbar({
   onAdminLogout,
 }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
-  const [adminPin, setAdminPin] = useState("");
-  const [pinError, setPinError] = useState(false);
 
   const handleAdminClick = useCallback(() => {
-    if (adminAuthenticated) {
-      onViewChange("admin");
-    } else {
-      setShowAdminLogin(true);
-      setAdminPin("");
-      setPinError(false);
-    }
-  }, [adminAuthenticated, onViewChange]);
-
-  const handleAdminAccess = useCallback(() => {
-    if (adminPin === ADMIN_PIN) {
-      setPinError(false);
-      setShowAdminLogin(false);
-      setAdminPin("");
-      onAdminAuthenticated();
-      onViewChange("admin");
-    } else {
-      setPinError(true);
-    }
-  }, [adminPin, onAdminAuthenticated, onViewChange]);
+    onAdminAuthenticated();
+  }, [onAdminAuthenticated]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -175,25 +144,14 @@ export default function Navbar({
               Accès WhatsApp
             </Button>
           ) : currentView === "chat" ? (
-            adminAuthenticated ? (
-              <Button
-                onClick={handleAdminClick}
-                variant="outline"
-                className="shadow-sm"
-              >
-                <Shield className="size-4 mr-2" />
-                Administration
-              </Button>
-            ) : (
-              <Button
-                onClick={handleAdminClick}
-                variant="outline"
-                className="shadow-sm"
-              >
-                <Shield className="size-4 mr-2" />
-                Administration
-              </Button>
-            )
+            <Button
+              onClick={handleAdminClick}
+              variant="outline"
+              className="shadow-sm"
+            >
+              <Shield className="size-4 mr-2" />
+              Administration
+            </Button>
           ) : (
             <Button
               onClick={() => onViewChange("chat")}
@@ -289,54 +247,6 @@ export default function Navbar({
           </Sheet>
         </div>
       </nav>
-
-      {/* Admin PIN Login Dialog */}
-      <Dialog open={showAdminLogin} onOpenChange={setShowAdminLogin}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield className="size-5 text-emerald-600" />
-              Accès Administration
-            </DialogTitle>
-            <DialogDescription>
-              Entrez le code PIN administrateur pour accéder au tableau de bord.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Input
-                type="password"
-                placeholder="Code PIN"
-                value={adminPin}
-                onChange={(e) => {
-                  setAdminPin(e.target.value);
-                  if (pinError) setPinError(false);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleAdminAccess();
-                  }
-                }}
-                className={cn(
-                  "text-center text-2xl tracking-widest",
-                  pinError && "border-red-500 focus-visible:ring-red-500"
-                )}
-                maxLength={6}
-                autoFocus
-              />
-              {pinError && (
-                <p className="text-sm text-red-500 text-center">
-                  Code PIN incorrect. Veuillez réessayer.
-                </p>
-              )}
-            </div>
-            <Button className="w-full" onClick={handleAdminAccess}>
-              <Shield className="size-4 mr-2" />
-              Accéder au Dashboard
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </motion.header>
   );
 }

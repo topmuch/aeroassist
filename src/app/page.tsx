@@ -10,6 +10,7 @@ import FaqSection from "@/components/landing/faq-section";
 import CtaSection from "@/components/landing/cta-section";
 import AeroAssistChat from "@/components/chat/aeroassist-chat";
 import AdminDashboard from "@/components/admin/admin-dashboard";
+import AdminLoginPage from "@/components/admin/admin-login-page";
 import { Plane, Loader2 } from "lucide-react";
 
 function LoadingScreen() {
@@ -44,16 +45,31 @@ const pageVariants = {
 
 export default function Home() {
   const [currentView, setCurrentView] = useState<ViewType>("landing");
+  const [showLoginPage, setShowLoginPage] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [adminAuthenticated, setAdminAuthenticated] = useState(false);
 
+  const handleAdminClick = useCallback(() => {
+    if (adminAuthenticated) {
+      setCurrentView("admin");
+    } else {
+      setShowLoginPage(true);
+    }
+  }, [adminAuthenticated]);
+
   const handleAdminAuthenticated = useCallback(() => {
     setAdminAuthenticated(true);
+    setShowLoginPage(false);
+    setCurrentView("admin");
   }, []);
 
   const handleAdminLogout = useCallback(() => {
     setAdminAuthenticated(false);
     setCurrentView("landing");
+  }, []);
+
+  const handleLoginBack = useCallback(() => {
+    setShowLoginPage(false);
   }, []);
 
   useEffect(() => {
@@ -67,18 +83,30 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      {currentView !== "admin" && (
+      {/* ── Full-Screen Login Page ─────────────────────────────── */}
+      <AnimatePresence>
+        {showLoginPage && (
+          <AdminLoginPage
+            key="login-page"
+            onBack={handleLoginBack}
+            onLogin={handleAdminAuthenticated}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Navbar (hidden behind login page) ──────────────────── */}
+      {!showLoginPage && currentView !== "admin" && (
         <Navbar
           currentView={currentView}
           onViewChange={setCurrentView}
           adminAuthenticated={adminAuthenticated}
-          onAdminAuthenticated={handleAdminAuthenticated}
+          onAdminAuthenticated={handleAdminClick}
           onAdminLogout={handleAdminLogout}
         />
       )}
 
       <AnimatePresence mode="wait">
-        {currentView === "landing" && (
+        {!showLoginPage && currentView === "landing" && (
           <motion.main
             key="landing"
             variants={pageVariants}
@@ -96,7 +124,7 @@ export default function Home() {
           </motion.main>
         )}
 
-        {currentView === "chat" && (
+        {!showLoginPage && currentView === "chat" && (
           <motion.main
             key="chat"
             variants={pageVariants}
@@ -112,7 +140,7 @@ export default function Home() {
           </motion.main>
         )}
 
-        {currentView === "admin" && (
+        {!showLoginPage && currentView === "admin" && (
           <motion.main
             key="admin"
             variants={pageVariants}
