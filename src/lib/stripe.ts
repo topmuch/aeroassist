@@ -515,14 +515,15 @@ export async function processWebhookEvent(event: Record<string, unknown>): Promi
 
         // Match by PaymentIntent ID for accuracy (not userId + orderBy which matches wrong reservation)
         const paymentIntentId = data.payment_intent as string;
-        let reservation = null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reservation from findMany needs dynamic access
+        let reservation: any = null;
 
         if (paymentIntentId) {
           // Try matching by paymentIntentId stored in reservation details
           const allPaidReservations = await db.reservation.findMany({
             where: { paymentStatus: 'paid' },
           });
-          reservation = allPaidReservations.find((r) => {
+          reservation = allPaidReservations.find((r: any) => {
             try {
               const details = JSON.parse(r.details || '{}');
               return details.stripePaymentIntent === paymentIntentId;
@@ -538,7 +539,7 @@ export async function processWebhookEvent(event: Record<string, unknown>): Promi
           const allPaidReservations = await db.reservation.findMany({
             where: { paymentStatus: 'paid' },
           });
-          reservation = allPaidReservations.find((r) => {
+          reservation = allPaidReservations.find((r: any) => {
             try {
               const details = JSON.parse(r.details || '{}');
               return details.stripeChargeId === chargeId;

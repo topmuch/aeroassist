@@ -210,7 +210,7 @@ async function generateGroqEmbedding(text: string): Promise<number[]> {
 
     try {
       // Dynamic import to avoid Turbopack issues
-      const ZAI = (await import('z-ai-web-dev-sdk')).default;
+      const ZAI = (await import('z-ai-web-dev-sdk')).default as any;
       const zai = ZAI.create();
 
       const result = await Promise.race([
