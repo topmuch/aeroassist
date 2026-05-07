@@ -50,14 +50,22 @@ export async function GET(request: NextRequest) {
         orderBy: { _count: { id: 'desc' } },
       }),
 
-      // Messages per day (last 7 days)
-      db.$queryRaw<Array<{ date: string; count: bigint }>>`
-        SELECT DATE(createdAt) as date, COUNT(*) as count
-        FROM Message
-        WHERE createdAt >= DATE('now', '-7 days')
-        GROUP BY DATE(createdAt)
-        ORDER BY date ASC
-      `,
+      // Messages per day (last 7 days) — database-agnostic (works on SQLite & PostgreSQL)
+      db.message.findMany({
+        where: {
+          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        },
+        select: { createdAt: true },
+      }).then((msgs) => {
+        const dateMap = new Map<string, number>();
+        for (const msg of msgs) {
+          const date = msg.createdAt.toISOString().split('T')[0];
+          dateMap.set(date, (dateMap.get(date) || 0) + 1);
+        }
+        return Array.from(dateMap.entries())
+          .map(([date, count]) => ({ date, count }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+      }),
 
       // Resolved conversations (status = closed)
       db.conversation.count({ where: { status: 'closed' } }),
@@ -120,11 +128,8 @@ export async function GET(request: NextRequest) {
         count: item._count.id,
       }));
 
-    // Format messages per day
-    const dailyMessages = messagesPerDay.map((row) => ({
-      date: row.date,
-      count: Number(row.count),
-    }));
+    // Format messages per day (already grouped by date)
+    const dailyMessages = messagesPerDay;
 
     return NextResponse.json({
       success: true,

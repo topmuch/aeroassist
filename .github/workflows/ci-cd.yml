@@ -147,25 +147,13 @@ jobs:
           retention-days: 7
 
   # ── 4. API Smoke Tests ────────────────────────────────────────────────────
+  # Uses SQLite (same as build) to avoid Prisma client mismatch with standalone output.
+  # PostgreSQL-specific features are tested in separate integration jobs.
   api-tests:
     name: API Smoke Tests
     needs: [build]
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: aeroassist
-          POSTGRES_PASSWORD: aeroassist_test
-          POSTGRES_DB: aeroassist_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U aeroassist"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -194,10 +182,10 @@ jobs:
           name: nextjs-build
           path: .next/
 
-      - name: Push database schema
+      - name: Push database schema (SQLite)
         run: bun run db:push
         env:
-          DATABASE_URL: postgresql://aeroassist:aeroassist_test@localhost:5432/aeroassist_test
+          DATABASE_URL: "file:./db/custom.db"
 
       - name: Start production server
         run: |
@@ -212,15 +200,15 @@ jobs:
             sleep 2
           done
         env:
-          DATABASE_URL: postgresql://aeroassist:aeroassist_test@localhost:5432/aeroassist_test
+          DATABASE_URL: "file:./db/custom.db"
           NEXTAUTH_SECRET: test-secret-for-ci
-          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY || 'ci-test-api-key' }}
+          ADMIN_API_KEY: ci-test-api-key
 
       - name: Run API smoke tests
         run: |
           set -euo pipefail
           BASE_URL="http://localhost:3000"
-          AUTH_HEADER="Authorization: Bearer ${{ secrets.ADMIN_API_KEY || 'ci-test-api-key' }}"
+          AUTH_HEADER="Authorization: Bearer ci-test-api-key"
           PASS=0
           FAIL=0
 
@@ -264,9 +252,9 @@ jobs:
           # Health check
           run_test "GET /api/health" GET "/api/health" "200"
 
-          # Chat endpoint
-          run_test "POST /api/chat" POST "/api/chat" "200" "$AUTH_HEADER" \
-            '{"message":"Hello, what services do you offer?","conversationId":"smoke-test-001"}'
+          # Chat endpoint (no conversationId — creates new conversation)
+          run_test "POST /api/chat" POST "/api/chat" "200" "" \
+            '{"message":"Hello, what services do you offer?"}'
 
           # RAG search
           run_test "POST /api/rag/test" POST "/api/rag/test" "200" "$AUTH_HEADER" \
